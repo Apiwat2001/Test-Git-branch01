@@ -320,8 +320,5 @@ useEffect(() => {
 export default App;
 
 
-
-
-
-/* version1.2 */
+/* version1.1 */
 
