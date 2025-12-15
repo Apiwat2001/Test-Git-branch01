@@ -4,6 +4,9 @@ import "./index.css";
 
 
 
+const COMMANDS = {
+  info: ":info 99\r\n"
+};
 function App() {
   const [ports, setPorts] = useState([]);
   const [activeFrame, setActiveFrame] = useState("frame1");
@@ -270,38 +273,16 @@ useEffect(() => {
               </div>
 
               {/* ปุ่มส่งคำสั่ง */}
-                <button
-                  onClick={async () => {
-                    if (!connected) return alert("Please connect a COM port first.");
-                    setSending(true);
-
-                    try {
-                      const command = ":info 99\r\n";
-                      const response = await invoke("send_serial_async", {
-                        portName: selectedPort,
-                        command: command
-                      });
-
-                      setStatusMessage(prev => prev + "\n" + response);
-
-                      if (messageRef.current) {
-                        messageRef.current.scrollTop = messageRef.current.scrollHeight;
-                      }
-                    } catch (err) {
-                      console.error("Error reading response:", err);
-                      setStatusMessage(prev => prev + "\n" + (err && err.message ? err.message : JSON.stringify(err)));
-                    } finally {
-                      setSending(false);
-                    }
-                  }}
-                  disabled={!connected || sending}
-                  className={`px-4 py-2 rounded-md shadow 
-                    ${!connected || sending 
-                      ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed" 
-                      : "bg-green-600 text-white hover:bg-green-500 active:bg-green-700"}`}
-                >
-                  {sending ? "Sending..." : "Device Info"}
-                </button>
+              <button
+                onClick={() => sendCommand(COMMANDS.info)}
+                disabled={!connected || sending}
+                className={`px-4 py-2 rounded-md shadow 
+                  ${!connected || sending 
+                    ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed" 
+                    : "bg-green-600 text-white hover:bg-green-500 active:bg-green-700"}`}
+              >
+                {sending ? "Sending..." : "Device Info"}
+              </button>
             </div>
           )}
 
