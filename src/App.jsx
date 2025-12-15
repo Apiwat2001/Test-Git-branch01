@@ -188,7 +188,7 @@ useEffect(() => {
               <span
               // อยู่ใต้ parent ที่มี relative จะใช้ 
               // absolute top-45 left-8 แก้ตามต้องการ
-                className={`absolute top-30 left-55 ml-4 font-bold flex justify-center mt-25
+                className={`absolute top-30 left-60 ml-4 font-bold flex justify-center mt-25
                   ${ connected ? "text-green-400" : "text-red-400"}`}
                   style={{ width : "120px"}}
               >
@@ -323,5 +323,5 @@ export default App;
 
 
 
-/* version 1.2 */
+/* version 1.3 */
 
