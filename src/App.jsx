@@ -18,8 +18,9 @@ function App() {
   const [statusMessage, setStatusMessage] = useState("");
   const [sending, setSending] = useState(false);
   const messageRef = useRef(null);
+  const [customCommand, setCustomCommand] = useState("");
 
-  
+
   async function scanComPort() {
     try {
       const result = await invoke("list_com_ports");
@@ -261,8 +262,8 @@ useEffect(() => {
               >
                 Disconnect
               </button>
-            </div>
 
+            </div>
               {/* Message Area */}
               <div
                 className="w-full h-64 p-4 bg-black text-green-300 border border-gray-700 rounded-md overflow-auto text-sm"
@@ -283,8 +284,35 @@ useEffect(() => {
               >
                 {sending ? "Sending..." : "Device Info"}
               </button>
-            </div>
-          )}
+
+                {/* Custom Command */}
+                <div className="relative h-96"> {/* parent มี relative + กำหนดความสูง */}
+                  <div
+                    className="absolute flex items-center gap-2"
+                    style={{ top: '-55px', left: '150px' }} // ปรับ top/left ตามใจ
+                  >
+                    <input
+                      type="text"
+                      value={customCommand}
+                      onChange={(e) => setCustomCommand(e.target.value)}
+                      placeholder="Enter custom command"
+                      className="w-64 px-3 py-2 rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                    />
+                    <button
+                      onClick={() => sendCommand(customCommand)}
+                      disabled={!connected || sending || !customCommand}
+                      className={`px-4 py-2 rounded-md shadow 
+                        ${!connected || sending || !customCommand
+                          ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
+                          : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"}`}
+                    >
+                      {sending ? "Sending..." : "Send"}
+                    </button>
+                  </div>
+                </div>
+
+          </div>
+        )}
 
         {/* Frame 3 */}
         {activeFrame === "frame3" && (
@@ -301,5 +329,5 @@ useEffect(() => {
 export default App;
 
 
-/* v1.5beta1 */
+/* v1.5beta2 */
 
