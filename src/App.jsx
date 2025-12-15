@@ -320,8 +320,5 @@ useEffect(() => {
 export default App;
 
 
-
-
-
-/* version 1.3 */
+/* frame 1 v1.4 */
 
