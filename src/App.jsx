@@ -129,8 +129,8 @@ async function sendCommand(command) {
 
       {/* Content */}
       <div className="flex-1 p-6 overflow-auto">
-
-        {/* Frame 1 */}
+{/*================================================================================================================================================================================*/} 
+{/* Frame 1 */}
         {activeFrame === "frame1" && (
           <div className="relative space-y-5 relative">
             <h2 className="text-2xl font-bold text-gray-200">COM Port Scanner</h2>
@@ -212,8 +212,8 @@ async function sendCommand(command) {
             </div>
           </div>
         )}
-
-          {/* Frame 2 */}
+{/*================================================================================================================================================================================*/}
+{/* Frame 2 */}
           {activeFrame === "frame2" && (
             <div className="relative space-y-4">
               <h2 className="text-2xl font-bold text-gray-200">Digital Test</h2>
@@ -324,21 +324,24 @@ async function sendCommand(command) {
 
           </div>
         )}
-
-        {/* Frame 3 */}
+{/*================================================================================================================================================================================*/}
+{/* Frame 3 */}
         {activeFrame === "frame3" && (
           <div>
             <h2 className="text-xl font-bold text-gray-200">Frame 3</h2>
             <p className="text-gray-400">Content for frame 3.</p>
           </div>
         )}
-        {/* Frame 4 */}
+{/*================================================================================================================================================================================*/}
+{/* Frame 4 */}
         {activeFrame === "frame4" && (
           <div>
             <h2 className="text-xl font-bold text-gray-200">Frame 4</h2>
             <p className="text-gray-400">Content for frame 3.</p>
           </div>
         )}
+
+{/*================================================================================================================================================================================*/}
       </div>
     </div>
   );
@@ -347,5 +350,5 @@ async function sendCommand(command) {
 export default App;
 
 
-/* v1.5beta4 */
+/* v1.6beta1 */
 
