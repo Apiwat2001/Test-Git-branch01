@@ -18,8 +18,9 @@ function App() {
   const [statusMessage, setStatusMessage] = useState("");
   const [sending, setSending] = useState(false);
   const messageRef = useRef(null);
+  const [customCommand, setCustomCommand] = useState("");
 
-  
+
   async function scanComPort() {
     try {
       const result = await invoke("list_com_ports");
@@ -68,23 +69,35 @@ useEffect(() => {
     }
   }
 
-  async function sendCommand(command) {
+async function sendCommand(command) {
   if (!connected) return alert("Please connect a COM port first.");
   setSending(true); // เปิด loading
 
+  // ถ้า customCommand เป็นค่าว่าง แสดงว่าไม่ได้กรอกคำสั่ง
+  if (!command.trim()) {
+    alert("Please enter a command.");
+    setSending(false);
+    return;
+  }
+
+  // เพิ่ม \r\n ตามหลังคำสั่งหากไม่มีอยู่แล้ว
+  if (!command.endsWith("\r\n")) {
+    command += "\r\n";
+  }
+
   try {
-    // ส่ง command และรออ่าน response
+    // ส่งคำสั่งไปที่ backend
     const response = await invoke("send_serial_async", {
       portName: selectedPort,
-      command: command,
+      command: command,  // ส่งคำสั่งที่กรอกหรือคำสั่งที่กำหนดไว้
     });
 
+    // อัปเดตข้อความที่ได้จากการตอบกลับ
     setStatusMessage((prev) => prev + "\n" + response);
 
-    // scroll message area ลงอัตโนมัติ
+    // เลื่อนข้อความลงไปที่ด้านล่างอัตโนมัติ
     if (messageRef.current) {
       messageRef.current.scrollTop = messageRef.current.scrollHeight;
-
     }
   } catch (err) {
     console.error("Error reading response:", err);
@@ -96,10 +109,9 @@ useEffect(() => {
 
   return (
     <div className="flex h-screen">
-
       {/* Sidebar */}
       <div className="flex flex-col w-52 bg-gray-800 text-white p-4 shadow-lg">
-        {["frame1", "frame2", "frame3"].map((frame, idx) => (
+        {["frame1", "frame2", "frame3", "frame4"].map((frame, idx) => (
           <button
             key={frame}
             onClick={() => setActiveFrame(frame)}
@@ -110,7 +122,7 @@ useEffect(() => {
                   : "bg-gray-700 hover:bg-gray-600 active:bg-gray-900"
               }`}
           >
-            {frameNames[frame] || '=None='}
+            {frameNames[frame] || '-- None --'}
           </button>
         ))}
       </div>
@@ -203,11 +215,11 @@ useEffect(() => {
 
           {/* Frame 2 */}
           {activeFrame === "frame2" && (
-            <div className="space-y-4">
+            <div className="relative space-y-4">
               <h2 className="text-2xl font-bold text-gray-200">Digital Test</h2>
 
             {/* Select + Refresh */}
-              <div className="absolute top-3 left-95 flex items-center gap-3 mt-2">
+              <div className="absolute top-[0px] left-45 flex items-center gap-3 mt-0">
                 <select
                   className="w-25 px-3 py-2 rounded border border-gray-300 bg-black text-green-300
                             focus:outline-none focus:ring-2 focus:ring-green-500 text-[12px]"
@@ -237,7 +249,7 @@ useEffect(() => {
               </div>
 
             {/* Connect / Disconnect buttons */}
-            <div className="absolute top-6 left-140 flex gap-3 text-[12px]">
+            <div className="absolute top-[5px] left-90 flex gap-3 text-[12px]">
               <button
                 onClick={connectPort}
                 disabled={connected || !selectedPort}
@@ -262,7 +274,7 @@ useEffect(() => {
                 Disconnect
               </button>
             </div>
-
+            
               {/* Message Area */}
               <div
                 className="w-full h-64 p-4 bg-black text-green-300 border border-gray-700 rounded-md overflow-auto text-sm"
@@ -283,13 +295,47 @@ useEffect(() => {
               >
                 {sending ? "Sending..." : "Device Info"}
               </button>
-            </div>
-          )}
+
+                {/* Custom Command */}
+                <div className="relative h-96"> {/* parent มี relative + กำหนดความสูง */}
+                  <div
+                    className="absolute flex items-center gap-2"
+                    style={{ top: '-55px', left: '150px' }} // ปรับ top/left ตามใจ
+                  >
+                    <input
+                      type="text"
+                      value={customCommand}
+                      onChange={(e) => setCustomCommand(e.target.value)}
+                      placeholder="Enter custom command"
+                      className="w-64 px-3 py-2 rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
+                    />
+                    <button
+                      onClick={() => sendCommand(customCommand)}
+                      disabled={!connected || sending || !customCommand}
+                      className={`px-4 py-2 rounded-md shadow 
+                        ${!connected || sending || !customCommand
+                          ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
+                          : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"}`}
+                    >
+                      {sending ? "Sending..." : "Send"}
+                    </button>
+                  </div>
+                </div>
+
+          </div>
+        )}
 
         {/* Frame 3 */}
         {activeFrame === "frame3" && (
           <div>
             <h2 className="text-xl font-bold text-gray-200">Frame 3</h2>
+            <p className="text-gray-400">Content for frame 3.</p>
+          </div>
+        )}
+        {/* Frame 4 */}
+        {activeFrame === "frame4" && (
+          <div>
+            <h2 className="text-xl font-bold text-gray-200">Frame 4</h2>
             <p className="text-gray-400">Content for frame 3.</p>
           </div>
         )}
@@ -301,5 +347,5 @@ useEffect(() => {
 export default App;
 
 
-/* version v1.4 */
+/* v1.5beta4 */
 
