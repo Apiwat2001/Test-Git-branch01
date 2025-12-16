@@ -347,5 +347,5 @@ async function sendCommand(command) {
 export default App;
 
 
-/* v1.5beta4 */
+/* version v1.5 */
 
