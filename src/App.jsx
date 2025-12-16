@@ -215,7 +215,7 @@ async function sendCommand(command) {
 {/*================================================================================================================================================================================*/}
 {/* Frame 2 */}
           {activeFrame === "frame2" && (
-            <div className="relative space-y-4">
+            <div className="relative space-y-4 ">
               <h2 className="text-2xl font-bold text-gray-200">Digital Test</h2>
 
             {/* Select + Refresh */}
