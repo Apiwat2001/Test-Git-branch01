@@ -69,23 +69,35 @@ useEffect(() => {
     }
   }
 
-  async function sendCommand(command) {
+async function sendCommand(command) {
   if (!connected) return alert("Please connect a COM port first.");
   setSending(true); // เปิด loading
 
+  // ถ้า customCommand เป็นค่าว่าง แสดงว่าไม่ได้กรอกคำสั่ง
+  if (!command.trim()) {
+    alert("Please enter a command.");
+    setSending(false);
+    return;
+  }
+
+  // เพิ่ม \r\n ตามหลังคำสั่งหากไม่มีอยู่แล้ว
+  if (!command.endsWith("\r\n")) {
+    command += "\r\n";
+  }
+
   try {
-    // ส่ง command และรออ่าน response
+    // ส่งคำสั่งไปที่ backend
     const response = await invoke("send_serial_async", {
       portName: selectedPort,
-      command: command,
+      command: command,  // ส่งคำสั่งที่กรอกหรือคำสั่งที่กำหนดไว้
     });
 
+    // อัปเดตข้อความที่ได้จากการตอบกลับ
     setStatusMessage((prev) => prev + "\n" + response);
 
-    // scroll message area ลงอัตโนมัติ
+    // เลื่อนข้อความลงไปที่ด้านล่างอัตโนมัติ
     if (messageRef.current) {
       messageRef.current.scrollTop = messageRef.current.scrollHeight;
-
     }
   } catch (err) {
     console.error("Error reading response:", err);
@@ -320,7 +332,7 @@ useEffect(() => {
             <p className="text-gray-400">Content for frame 3.</p>
           </div>
         )}
-        {/* Frame 3 */}
+        {/* Frame 4 */}
         {activeFrame === "frame4" && (
           <div>
             <h2 className="text-xl font-bold text-gray-200">Frame 4</h2>
@@ -335,5 +347,5 @@ useEffect(() => {
 export default App;
 
 
-/* v1.5beta3 */
+/* v1.5beta4 */
 
