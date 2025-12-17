@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./index.css";
 
+
 const COMMANDS = {
   info: ":info 99\r\n"
 };
@@ -48,6 +49,9 @@ async function connectPort() {
     console.log("Connecting to port:", selectedPort);
     const res = await invoke("connect_com_port", { portName: selectedPort });
     console.log("Connect result:", res);
+    if (!res || res.error) {
+      throw new Error("Failed to connect to the port.");
+    }
     setConnected(true);
 
     // เริ่ม polling เพื่ออ่านข้อมูลแบบต่อเนื่อง
@@ -71,39 +75,57 @@ async function connectPort() {
   }
 
 const sendCommand = async (command) => {
-  if (!connected) return alert("Please connect a COM port first.");
-  setSending(true);
+    if (!connected) return alert("Please connect a COM port first.");
+    setSending(true);
 
-  if (!command.trim()) {
-    alert("Please enter a command.");
-    setSending(false);
-    return;
-  }
+    if (!command.trim()) {
+        alert("Please enter a command.");
+        setSending(false);
+        return;
+    }
 
-  if (!command.endsWith("\r\n")) {
-    command += "\r\n"; // Make sure the command ends with a newline
-  }
+    if (!command.endsWith("\r\n")) {
+        command += "\r\n"; // Make sure the command ends with a newline
+    }
 
-  try {
-    // ส่งคำสั่งไปที่ backend
-    const sendResponse = await invoke("send_serial_async", {
-      portName: selectedPort,
-      command: command,
-    });
+    try {
+        const sendResponse = await invoke("send_serial_async", {
+            portName: selectedPort,
+            command: command,
+        });
 
-    console.log("Sent response:", sendResponse); // ดูคำตอบที่ได้รับ
-    setStatusMessage((prev) => prev + "\n" + sendResponse);
+        console.log("Sent response:", sendResponse);
+        setStatusMessage((prev) => prev + "\n" + sendResponse);
 
-    const readResponse = await invoke("read_serial", { portName: selectedPort });
-    console.log("Read response:", readResponse); // ตรวจสอบข้อมูลที่ได้รับจากการอ่าน serial
-    setStatusMessage((prev) => prev + "\n" + readResponse);
-  } catch (err) {
-    console.error("Error:", err);
-    setStatusMessage((prev) => prev + "\nError occurred while sending or reading.");
-  } finally {
-    setSending(false);
-  }
+        const readResponse = await invoke("read_serial_async", { portName: selectedPort });
+        console.log("Read response:", readResponse);
+
+        if (readResponse) {
+            setStatusMessage((prev) => prev + "\n" + readResponse);
+        } else {
+            setStatusMessage((prev) => prev + "\nNo data received from serial port.");
+        }
+    } catch (err) {
+        console.error("Error:", err);
+        setStatusMessage((prev) => prev + "\nError occurred while sending or reading.");
+    } finally {
+        setSending(false);
+    }
 };
+
+
+useEffect(() => {
+  const handleSerialData = (event) => {
+    setStatusMessage((prev) => prev + "\n" + event.detail);  // เพิ่มข้อมูลที่ได้รับจาก COM port
+  };
+
+  window.addEventListener("serial-data", handleSerialData);
+
+  return () => {
+    window.removeEventListener("serial-data", handleSerialData);
+  };
+}, []);
+
 
 const pollReadSerial = () => {
   const interval = setInterval(async () => {
@@ -113,15 +135,23 @@ const pollReadSerial = () => {
     }
     try {
       const response = await invoke("read_serial_continuous", { portName: selectedPort });
-      setStatusMessage((prev) => prev + "\n" + response);
+      if (response) {
+        console.log("Received Data:", response); // แสดงข้อมูลที่ได้รับจากการอ่าน Serial port
+        setStatusMessage((prev) => prev + "\n" + response);
+      } else {
+        console.log("No data received during polling.");
+      }
+
       if (messageRef.current) {
         messageRef.current.scrollTop = messageRef.current.scrollHeight;
       }
     } catch (err) {
       console.error("Error reading data:", err);
+      setStatusMessage((prev) => prev + "\nError occurred while polling.");
     }
-  }, 500);
+  }, 1000); // เพิ่มระยะเวลาในการ polling
 };
+
 
   return (
     <div className="flex h-screen">
