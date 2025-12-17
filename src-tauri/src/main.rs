@@ -70,30 +70,22 @@ async fn disconnect_com_port(port_name: String, state: State<'_, AppState>) -> R
 }
 
 #[tauri::command]
-async fn read_serial_continuous(port_name: String, state: State<'_, AppState>) -> Result<String, String> {
-    let mut ports = state.ports.lock().await; // ใช้ .lock().await แทน .lock().unwrap()
+async fn read_serial(port_name: String, state: State<'_, AppState>) -> Result<String, String> {
+    let mut ports = state.ports.lock().await; // mutable borrow
     let port = ports.get_mut(&port_name)
         .ok_or(format!("Port {} not connected", port_name))?;
 
     let mut buf = Vec::new();
     let mut tmp = [0u8; 1024]; // buffer สำหรับอ่านข้อมูล
 
-    loop {
-        match port.read(&mut tmp) {
-            Ok(n) if n > 0 => {
-                buf.extend_from_slice(&tmp[..n]);
-                // ถ้าเจอ \n หรือ \r ก็ส่งข้อมูลกลับ
-                if buf.contains(&b'\n') || buf.contains(&b'\r') {
-                    let data = String::from_utf8_lossy(&buf).to_string();
-                    return Ok(data); // ส่งข้อมูลกลับไป
-                }
-            }
-            Ok(_) => {}
-            Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => continue, // หาก timeout ให้วนใหม่
-            Err(e) => return Err(format!("Failed to read from port: {}", e)), // หากเกิด error ให้หยุด
+    match port.read(&mut tmp) {
+        Ok(n) if n > 0 => {
+            buf.extend_from_slice(&tmp[..n]);
+            let data = String::from_utf8_lossy(&buf).to_string();
+            Ok(data) // ส่งข้อมูลกลับไป
         }
-        // ให้ async รันไปอย่างไม่บล็อค
-        tokio::task::yield_now().await; // ให้โปรแกรมรันงานอื่น ๆ ได้
+        Ok(_) => Err("No data read".to_string()), // ไม่ได้รับข้อมูล
+        Err(e) => Err(format!("Error reading from port: {}", e)), // อ่านไม่ได้
     }
 }
 
@@ -112,11 +104,11 @@ async fn send_serial_async(
         .ok_or(format!("Port {} not connected", port_name))?;
 
     let command_bytes = command.as_bytes(); // ส่งคำสั่งไปที่ serial port
-    port.write_all(command_bytes).map_err(|e| e.to_string())?;
+    port.write_all(command_bytes).map_err(|e| e.to_string())?; // ส่งคำสั่ง
     port.flush().map_err(|e| e.to_string())?; // flush คำสั่งไปที่ port
 
     // ส่งข้อความว่าได้ส่งคำสั่งแล้ว
-    Ok(format!("Sent command to {}", port_name))
+    Ok(format!("Sent command to {}", port_name)) // คำสั่งส่งไปแล้ว
 }
 
 fn main() {
@@ -126,7 +118,7 @@ fn main() {
             list_com_ports,
             connect_com_port,
             disconnect_com_port,
-            read_serial_continuous,
+            read_serial,         
             send_serial_async
         ])
         .setup(|app| {

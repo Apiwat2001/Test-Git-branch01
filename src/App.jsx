@@ -67,49 +67,49 @@ function App() {
     }
   }
 
-  async function sendCommand(command) {
-    if (!connected) return alert("Please connect a COM port first.");
-    setSending(true); // เปิด loading
+ async function sendCommand(command) {
+  if (!connected) return alert("Please connect a COM port first.");
+  setSending(true); // เปิด loading
 
-    // ถ้า customCommand เป็นค่าว่าง แสดงว่าไม่ได้กรอกคำสั่ง
-    if (!command.trim()) {
-      alert("Please enter a command.");
-      setSending(false);
-      return;
-    }
-
-    // เพิ่ม \r\n ตามหลังคำสั่งหากไม่มีอยู่แล้ว
-    if (!command.endsWith("\r\n")) {
-      command += "\r\n";
-    }
-
-    try {
-      // ส่งคำสั่งไปที่ backend
-      const sendResponse = await invoke("send_serial_async", {
-        portName: selectedPort,
-        command: command, // ส่งคำสั่งที่กรอกหรือคำสั่งที่กำหนดไว้
-      });
-
-      // อัปเดตข้อความที่ได้จากการตอบกลับ
-      setStatusMessage((prev) => prev + "\n" + sendResponse);
-
-      // รออ่านข้อมูลจาก serial port (เรียก read_serial ทุกครั้งหลังจากส่งคำสั่ง)
-      const readResponse = await invoke("read_serial", { portName: selectedPort });
-
-      // อัปเดตข้อความที่ได้จากการอ่าน
-      setStatusMessage((prev) => prev + "\n" + readResponse);
-
-      // เลื่อนข้อความลงไปที่ด้านล่างอัตโนมัติ
-      if (messageRef.current) {
-        messageRef.current.scrollTop = messageRef.current.scrollHeight;
-      }
-    } catch (err) {
-      console.error("Error:", err);
-      setStatusMessage((prev) => prev + "\nError occurred while sending or reading.");
-    } finally {
-      setSending(false); // ปิด loading
-    }
+  if (!command.trim()) {
+    alert("Please enter a command.");
+    setSending(false);
+    return;
   }
+
+  if (!command.endsWith("\r\n")) {
+    command += "\r\n";
+  }
+
+  try {
+    // ส่งคำสั่งไปที่ backend
+    const sendResponse = await invoke("send_serial_async", {
+      portName: selectedPort,
+      command: command,
+    });
+
+    console.log('Sent response:', sendResponse); // เช็คว่าคำสั่งถูกส่งไปสำเร็จไหม
+
+    // อัปเดตข้อความที่ได้จากการตอบกลับ
+    setStatusMessage((prev) => prev + "\n" + sendResponse);
+
+    // รออ่านข้อมูลจาก serial port (เรียก read_serial ทุกครั้งหลังจากส่งคำสั่ง)
+    const readResponse = await invoke("read_serial", { portName: selectedPort });
+
+    console.log('Read response:', readResponse); // ตรวจสอบข้อความที่ได้รับจากการอ่านข้อมูล
+    setStatusMessage((prev) => prev + "\n" + readResponse);
+
+    if (messageRef.current) {
+      messageRef.current.scrollTop = messageRef.current.scrollHeight;
+    }
+  } catch (err) {
+    console.error("Error:", err);
+    setStatusMessage((prev) => prev + "\nError occurred while sending or reading.");
+  } finally {
+    setSending(false);
+  }
+}
+
 
   // ฟังก์ชัน polling ที่ฝั่ง React
   const pollReadSerial = () => {
