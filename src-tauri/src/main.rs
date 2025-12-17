@@ -70,26 +70,6 @@ async fn disconnect_com_port(port_name: String, state: State<'_, AppState>) -> R
 }
 
 #[tauri::command]
-async fn read_serial(port_name: String, state: State<'_, AppState>) -> Result<String, String> {
-    let mut ports = state.ports.lock().await; // mutable borrow
-    let port = ports.get_mut(&port_name)
-        .ok_or(format!("Port {} not connected", port_name))?;
-
-    let mut buf = Vec::new();
-    let mut tmp = [0u8; 1024]; // buffer สำหรับอ่านข้อมูล
-
-    match port.read(&mut tmp) {
-        Ok(n) if n > 0 => {
-            buf.extend_from_slice(&tmp[..n]);
-            let data = String::from_utf8_lossy(&buf).to_string();
-            Ok(data) // ส่งข้อมูลกลับไป
-        }
-        Ok(_) => Err("No data read".to_string()), // ไม่ได้รับข้อมูล
-        Err(e) => Err(format!("Error reading from port: {}", e)), // อ่านไม่ได้
-    }
-}
-
-#[tauri::command]
 async fn send_serial_async(
     port_name: String,
     command: String,
@@ -97,19 +77,58 @@ async fn send_serial_async(
 ) -> Result<String, String> {
     let ports_mutex = state.ports.clone();
     let port_name = port_name.clone();
-    let command = command.clone(); // ทำงานใน async context
+    let command = command.clone();
 
-    let mut ports = ports_mutex.lock().await; // ใช้ .await ใน async context
+    let mut ports = ports_mutex.lock().await;
     let port = ports.get_mut(&port_name)
         .ok_or(format!("Port {} not connected", port_name))?;
 
-    let command_bytes = command.as_bytes(); // ส่งคำสั่งไปที่ serial port
-    port.write_all(command_bytes).map_err(|e| e.to_string())?; // ส่งคำสั่ง
-    port.flush().map_err(|e| e.to_string())?; // flush คำสั่งไปที่ port
+    let command_bytes = command.as_bytes();
+    println!("Sending command: {}", command); // เพิ่มข้อความ log ก่อนการส่งคำสั่ง
 
-    // ส่งข้อความว่าได้ส่งคำสั่งแล้ว
-    Ok(format!("Sent command to {}", port_name)) // คำสั่งส่งไปแล้ว
+    match port.write_all(command_bytes) {
+        Ok(_) => {
+            println!("Command sent successfully to {}", port_name); // เพิ่มข้อความ log หลังส่งคำสั่ง
+            port.flush().map_err(|e| format!("Error flushing to port: {}", e))?;
+            Ok(format!("Sent command to {}", port_name))
+        }
+        Err(e) => {
+            eprintln!("Error sending command to {}: {}", port_name, e); // log ข้อผิดพลาดที่เกิดขึ้น
+            Err(format!("Error sending command to {}: {}", port_name, e))
+        }
+    }
 }
+
+#[tauri::command]
+async fn read_serial_continuous(port_name: String, state: State<'_, AppState>) -> Result<String, String> {
+    let mut ports = state.ports.lock().await;
+    let port = ports.get_mut(&port_name)
+        .ok_or(format!("Port {} not connected", port_name))?;
+
+    let mut buf = Vec::new();
+    let mut tmp = [0u8; 1024];
+
+    println!("Reading from port: {}", port_name); // เพิ่มข้อความ log ก่อนการอ่านข้อมูลจาก port
+
+    // ลองอ่านข้อมูลจาก port
+    match port.read(&mut tmp) {
+        Ok(n) if n > 0 => {
+            println!("Read {} bytes from port {}", n, port_name); // log ข้อมูลที่ได้
+            buf.extend_from_slice(&tmp[..n]);
+            let data = String::from_utf8_lossy(&buf).to_string();
+            Ok(data)
+        }
+        Ok(_) => {
+            println!("No data read from port: {}", port_name); // log เมื่อไม่มีข้อมูล
+            Ok("No data read".to_string()) // ส่งข้อความว่าไม่สามารถอ่านข้อมูลได้
+        }
+        Err(e) => {
+            eprintln!("Error reading from port {}: {}", port_name, e); // log ข้อผิดพลาดในการอ่านข้อมูล
+            Err(format!("Error reading from port {}: {}", port_name, e)) // ส่งข้อความข้อผิดพลาดกลับ
+        }
+    }
+}
+
 
 fn main() {
     tauri::Builder::default()
@@ -118,7 +137,7 @@ fn main() {
             list_com_ports,
             connect_com_port,
             disconnect_com_port,
-            read_serial,         
+            read_serial_continuous,         
             send_serial_async
         ])
         .setup(|app| {

@@ -42,19 +42,22 @@ function App() {
     scanComPort();
   }, []);
 
-  async function connectPort() {
-    if (!selectedPort) return alert("Please select a COM port first.");
-    try {
-      console.log("Connecting to port:", selectedPort);
-      const res = await invoke("connect_com_port", { portName: selectedPort });
-      console.log("Connect result:", res);
-      setConnected(true);
-    } catch (e) {
-      console.error("Error connecting:", e);
-      alert("Failed to connect: " + (e && e.message ? e.message : e));
-      setConnected(false);
-    }
+async function connectPort() {
+  if (!selectedPort) return alert("Please select a COM port first.");
+  try {
+    console.log("Connecting to port:", selectedPort);
+    const res = await invoke("connect_com_port", { portName: selectedPort });
+    console.log("Connect result:", res);
+    setConnected(true);
+
+    // เริ่ม polling เพื่ออ่านข้อมูลแบบต่อเนื่อง
+    pollReadSerial();
+  } catch (e) {
+    console.error("Error connecting:", e);
+    alert("Failed to connect: " + (e && e.message ? e.message : e));
+    setConnected(false);
   }
+}
 
   async function disconnectPort() {
     try {
@@ -67,9 +70,9 @@ function App() {
     }
   }
 
- async function sendCommand(command) {
+const sendCommand = async (command) => {
   if (!connected) return alert("Please connect a COM port first.");
-  setSending(true); // เปิด loading
+  setSending(true);
 
   if (!command.trim()) {
     alert("Please enter a command.");
@@ -78,7 +81,7 @@ function App() {
   }
 
   if (!command.endsWith("\r\n")) {
-    command += "\r\n";
+    command += "\r\n"; // Make sure the command ends with a newline
   }
 
   try {
@@ -88,51 +91,37 @@ function App() {
       command: command,
     });
 
-    console.log('Sent response:', sendResponse); // เช็คว่าคำสั่งถูกส่งไปสำเร็จไหม
-
-    // อัปเดตข้อความที่ได้จากการตอบกลับ
+    console.log("Sent response:", sendResponse); // ดูคำตอบที่ได้รับ
     setStatusMessage((prev) => prev + "\n" + sendResponse);
 
-    // รออ่านข้อมูลจาก serial port (เรียก read_serial ทุกครั้งหลังจากส่งคำสั่ง)
     const readResponse = await invoke("read_serial", { portName: selectedPort });
-
-    console.log('Read response:', readResponse); // ตรวจสอบข้อความที่ได้รับจากการอ่านข้อมูล
+    console.log("Read response:", readResponse); // ตรวจสอบข้อมูลที่ได้รับจากการอ่าน serial
     setStatusMessage((prev) => prev + "\n" + readResponse);
-
-    if (messageRef.current) {
-      messageRef.current.scrollTop = messageRef.current.scrollHeight;
-    }
   } catch (err) {
     console.error("Error:", err);
     setStatusMessage((prev) => prev + "\nError occurred while sending or reading.");
   } finally {
     setSending(false);
   }
-}
+};
 
-
-  // ฟังก์ชัน polling ที่ฝั่ง React
-  const pollReadSerial = () => {
-    const interval = setInterval(async () => {
-      if (!connected || !selectedPort) {
-        clearInterval(interval);
-        return;
+const pollReadSerial = () => {
+  const interval = setInterval(async () => {
+    if (!connected || !selectedPort) {
+      clearInterval(interval); // หยุด polling เมื่อไม่ได้เชื่อมต่อ
+      return;
+    }
+    try {
+      const response = await invoke("read_serial_continuous", { portName: selectedPort });
+      setStatusMessage((prev) => prev + "\n" + response);
+      if (messageRef.current) {
+        messageRef.current.scrollTop = messageRef.current.scrollHeight;
       }
-      try {
-        const response = await invoke("read_serial_continuous", { portName: selectedPort });
-
-        // อัปเดตข้อความที่ได้จากการอ่าน
-        setStatusMessage((prev) => prev + "\n" + response);
-
-        // เลื่อนข้อความลงไปที่ด้านล่างอัตโนมัติ
-        if (messageRef.current) {
-          messageRef.current.scrollTop = messageRef.current.scrollHeight;
-        }
-      } catch (err) {
-        console.error("Error reading data:", err);
-      }
-    }, 500); // Poll ทุกๆ 500 ms
-  };
+    } catch (err) {
+      console.error("Error reading data:", err);
+    }
+  }, 500);
+};
 
   return (
     <div className="flex h-screen">
