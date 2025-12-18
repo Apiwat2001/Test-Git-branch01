@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import "./index.css";
 
-
 const COMMANDS = {
-  info: ":info 99\r\n"
+  info: ":info 99"
 };
 
 function App() {
@@ -18,9 +18,8 @@ function App() {
   const messageRef = useRef(null);
   const [customCommand, setCustomCommand] = useState("");
 
-  // ฟังก์ชันสำหรับเคลียร์ข้อความ
   const clearMessage = () => {
-    setStatusMessage(""); // เคลียร์ข้อความทั้งหมดใน message area
+    setStatusMessage("");
   };
 
   async function scanComPort() {
@@ -33,9 +32,10 @@ function App() {
     }
   }
 
+  // Auto-scroll เมื่อมีข้อความใหม่
   useEffect(() => {
     if (messageRef.current) {
-      messageRef.current.scrollTo({ top: messageRef.current.scrollHeight, behavior: "smooth" });
+      messageRef.current.scrollTop = messageRef.current.scrollHeight;
     }
   }, [statusMessage]);
 
@@ -43,121 +43,79 @@ function App() {
     scanComPort();
   }, []);
 
-async function connectPort() {
-  if (!selectedPort) return alert("Please select a COM port first.");
-  try {
-    console.log("Connecting to port:", selectedPort);
-    const res = await invoke("connect_com_port", { portName: selectedPort });
-    console.log("Connect result:", res);
-    if (!res || res.error) {
-      throw new Error("Failed to connect to the port.");
-    }
-    setConnected(true);
+  // ฟัง event จาก Rust backend สำหรับข้อมูล serial
+  useEffect(() => {
+    let unlisten;
 
-    // เริ่ม polling เพื่ออ่านข้อมูลแบบต่อเนื่อง
-    pollReadSerial();
-  } catch (e) {
-    console.error("Error connecting:", e);
-    alert("Failed to connect: " + (e && e.message ? e.message : e));
-    setConnected(false);
+    const setupListener = async () => {
+      unlisten = await listen("serial-data", (event) => {
+        const data = event.payload;
+        console.log("Received serial data:", data);
+        setStatusMessage((prev) => prev + data);
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  async function connectPort() {
+    if (!selectedPort) return alert("Please select a COM port first.");
+    try {
+      console.log("Connecting to port:", selectedPort);
+      const res = await invoke("connect_com_port", { portName: selectedPort });
+      console.log("Connect result:", res);
+      setConnected(true);
+      setStatusMessage(""); // เคลียร์ข้อความเก่า
+    } catch (e) {
+      console.error("Error connecting:", e);
+      alert("Failed to connect: " + (e?.message || e));
+      setConnected(false);
+    }
   }
-}
 
   async function disconnectPort() {
     try {
       const res = await invoke("disconnect_com_port", { portName: selectedPort });
       console.log("Disconnect result:", res);
-      setConnected(false); // update state หลัง disconnect สำเร็จ
+      setConnected(false);
     } catch (e) {
       console.error("Error disconnecting:", e);
-      alert("Failed to disconnect: " + (e && e.message ? e.message : e));
+      alert("Failed to disconnect: " + (e?.message || e));
     }
   }
 
-const sendCommand = async (command) => {
+  async function sendCommand(command) {
     if (!connected) return alert("Please connect a COM port first.");
+    if (!command.trim()) return alert("Please enter a command.");
+
     setSending(true);
 
-    if (!command.trim()) {
-        alert("Please enter a command.");
-        setSending(false);
-        return;
-    }
-
-    if (!command.endsWith("\r\n")) {
-        command += "\r\n"; // Make sure the command ends with a newline
-    }
-
     try {
-        const sendResponse = await invoke("send_serial_async", {
-            portName: selectedPort,
-            command: command,
-        });
-
-        console.log("Sent response:", sendResponse);
-        setStatusMessage((prev) => prev + "\n" + sendResponse);
-
-        const readResponse = await invoke("read_serial_async", { portName: selectedPort });
-        console.log("Read response:", readResponse);
-
-        if (readResponse) {
-            setStatusMessage((prev) => prev + "\n" + readResponse);
-        } else {
-            setStatusMessage((prev) => prev + "\nNo data received from serial port.");
-        }
+      const sendResponse = await invoke("send_serial_async", {
+        portName: selectedPort,
+        command: command,
+      });
+      console.log("Sent response:", sendResponse);
+      
+      // แสดงคำสั่งที่ส่งไป
+      setStatusMessage((prev) => prev + "\n> " + command.trim() + "\n");
     } catch (err) {
-        console.error("Error:", err);
-        setStatusMessage((prev) => prev + "\nError occurred while sending or reading.");
+      console.error("Error:", err);
+      setStatusMessage((prev) => prev + "\nError: " + err);
     } finally {
-        setSending(false);
+      setSending(false);
     }
-};
-
-
-useEffect(() => {
-  const handleSerialData = (event) => {
-    setStatusMessage((prev) => prev + "\n" + event.detail);  // เพิ่มข้อมูลที่ได้รับจาก COM port
-  };
-
-  window.addEventListener("serial-data", handleSerialData);
-
-  return () => {
-    window.removeEventListener("serial-data", handleSerialData);
-  };
-}, []);
-
-
-const pollReadSerial = () => {
-  const interval = setInterval(async () => {
-    if (!connected || !selectedPort) {
-      clearInterval(interval); // หยุด polling เมื่อไม่ได้เชื่อมต่อ
-      return;
-    }
-    try {
-      const response = await invoke("read_serial_continuous", { portName: selectedPort });
-      if (response) {
-        console.log("Received Data:", response); // แสดงข้อมูลที่ได้รับจากการอ่าน Serial port
-        setStatusMessage((prev) => prev + "\n" + response);
-      } else {
-        console.log("No data received during polling.");
-      }
-
-      if (messageRef.current) {
-        messageRef.current.scrollTop = messageRef.current.scrollHeight;
-      }
-    } catch (err) {
-      console.error("Error reading data:", err);
-      setStatusMessage((prev) => prev + "\nError occurred while polling.");
-    }
-  }, 1000); // เพิ่มระยะเวลาในการ polling
-};
-
+  }
 
   return (
     <div className="flex h-screen">
       {/* Sidebar */}
       <div className="flex flex-col w-52 bg-gray-800 text-white p-4 shadow-lg">
-        {["frame1", "frame2", "frame3", "frame4"].map((frame, idx) => (
+        {["frame1", "frame2", "frame3", "frame4"].map((frame) => (
           <button
             key={frame}
             onClick={() => setActiveFrame(frame)}
@@ -167,7 +125,7 @@ const pollReadSerial = () => {
                 : "bg-gray-700 hover:bg-gray-600 active:bg-gray-900"
             }`}
           >
-            {frameNames[frame] || '-- None --'}
+            {frameNames[frame] || "-- None --"}
           </button>
         ))}
       </div>
@@ -176,10 +134,10 @@ const pollReadSerial = () => {
       <div className="flex-1 p-6 overflow-auto">
         {/* Frame 1 */}
         {activeFrame === "frame1" && (
-          <div className="relative space-y-5 relative">
+          <div className="relative space-y-5">
             <h2 className="text-2xl font-bold text-gray-200">COM Port Scanner</h2>
-            {/* Select + Refresh */}
-            <div className="flex items-center gap-3 mt-30">
+            
+            <div className="flex items-center gap-3">
               <select
                 className="px-3 py-2 rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-[14px]"
                 value={selectedPort}
@@ -187,11 +145,11 @@ const pollReadSerial = () => {
                   const newPort = e.target.value;
                   if (connected && selectedPort !== newPort) {
                     try {
-                      await disconnectPort(); // disconnect port เก่า
+                      await disconnectPort();
                       setConnected(false);
                     } catch (err) {
                       console.error("Error disconnecting old port:", err);
-                      return; // ถ้า disconnect ไม่ได้ หยุดไม่เปลี่ยน port
+                      return;
                     }
                   }
                   setSelectedPort(newPort);
@@ -214,7 +172,6 @@ const pollReadSerial = () => {
               </button>
             </div>
 
-            {/* Connect / Disconnect */}
             <div className="flex items-center gap-3">
               <button
                 onClick={connectPort}
@@ -239,10 +196,9 @@ const pollReadSerial = () => {
                 Disconnect
               </button>
               <span
-                className={`absolute top-30 left-60 ml-4 font-bold flex justify-center mt-25 ${
+                className={`ml-4 font-bold ${
                   connected ? "text-green-400" : "text-red-400"
                 }`}
-                style={{ width: "120px" }}
               >
                 {connected ? "Connected" : "Disconnected"}
               </span>
@@ -252,10 +208,10 @@ const pollReadSerial = () => {
 
         {/* Frame 2 */}
         {activeFrame === "frame2" && (
-          <div className="relative space-y-4 ">
+          <div className="relative space-y-4">
             <h2 className="text-2xl font-bold text-gray-200">Digital Test</h2>
-            {/* Select + Refresh */}
-            <div className="absolute top-[0px] left-45 flex items-center gap-3 mt-0">
+            
+            <div className="absolute top-[0px] left-45 flex items-center gap-3">
               <select
                 className="w-25 px-3 py-2 rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-[12px]"
                 value={selectedPort}
@@ -290,7 +246,6 @@ const pollReadSerial = () => {
               </button>
             </div>
 
-            {/* Connect / Disconnect buttons */}
             <div className="absolute top-[5px] left-90 flex gap-3 text-[12px]">
               <button
                 onClick={connectPort}
@@ -318,51 +273,64 @@ const pollReadSerial = () => {
 
             {/* Message Area */}
             <div
-              className="w-full h-64 p-4 bg-black text-green-300 border border-gray-700 rounded-md overflow-auto text-sm"
+              className="w-full h-64 p-4 bg-black text-green-300 border border-gray-700 rounded-md overflow-auto text-sm font-mono"
               style={{ whiteSpace: "pre-wrap" }}
               ref={messageRef}
             >
-              {statusMessage || "No messages yet..."}
+              {statusMessage || "Waiting for data..."}
             </div>
 
-            {/* ปุ่มส่งคำสั่ง */}
-            <button
-              onClick={() => sendCommand(COMMANDS.info)}
-              disabled={!connected || sending}
-              className={`px-4 py-2 rounded-md shadow ${
-                !connected || sending
-                  ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
-                  : "bg-green-600 text-white hover:bg-green-500 active:bg-green-700"
-              }`}
-            >
-              {sending ? "Sending..." : "Device Info"}
-            </button>
+            {/* ปุ่มควบคุม */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => sendCommand(COMMANDS.info)}
+                disabled={!connected || sending}
+                className={`px-4 py-2 rounded-md shadow ${
+                  !connected || sending
+                    ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
+                    : "bg-green-600 text-white hover:bg-green-500 active:bg-green-700"
+                }`}
+              >
+                {sending ? "Sending..." : "Device Info"}
+              </button>
+
+              <button
+                onClick={clearMessage}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-md shadow hover:bg-yellow-500 active:bg-yellow-700"
+              >
+                Clear
+              </button>
+            </div>
 
             {/* Custom Command */}
-            <div className="relative h-96">
-              <div
-                className="absolute flex items-center gap-2"
-                style={{ top: "-55px", left: "150px" }}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={customCommand}
+                onChange={(e) => setCustomCommand(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && connected && !sending) {
+                    sendCommand(customCommand);
+                    setCustomCommand("");
+                  }
+                }}
+                placeholder="Enter custom command"
+                className="flex-1 px-3 py-2 rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm font-mono"
+              />
+              <button
+                onClick={() => {
+                  sendCommand(customCommand);
+                  setCustomCommand("");
+                }}
+                disabled={!connected || sending}
+                className={`px-4 py-2 rounded-md shadow ${
+                  !connected || sending
+                    ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
+                    : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"
+                }`}
               >
-                <input
-                  type="text"
-                  value={customCommand}
-                  onChange={(e) => setCustomCommand(e.target.value)}
-                  placeholder="Enter custom command"
-                  className="w-64 px-3 py-2 rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm"
-                />
-                <button
-                  onClick={() => sendCommand(customCommand)}
-                  disabled={!connected}
-                  className={`px-4 py-2 rounded-md shadow ${
-                    !connected
-                      ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"
-                  }`}
-                >
-                  {sending ? "Sending..." : "Send"}
-                </button>
-              </div>
+                Send
+              </button>
             </div>
           </div>
         )}
@@ -379,7 +347,7 @@ const pollReadSerial = () => {
         {activeFrame === "frame4" && (
           <div>
             <h2 className="text-xl font-bold text-gray-200">Frame 4</h2>
-            <p className="text-gray-400">Content for frame 3.</p>
+            <p className="text-gray-400">Content for frame 4.</p>
           </div>
         )}
       </div>
@@ -388,3 +356,5 @@ const pollReadSerial = () => {
 }
 
 export default App;
+
+/* v1.7beta1 */

@@ -1,15 +1,18 @@
-#![cfg_attr(all(not(debug_assertions), target_os = "windows"), windows_subsystem = "windows")]
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
 
-use serialport::{available_ports, SerialPort};
-use serde::{Serialize, Deserialize};
-use tauri::{PhysicalPosition, Manager, State, AppHandle, Emitter}; // นำเข้า Emitter
+use serialport::available_ports;
+use serialport::SerialPort;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tokio::sync::Mutex;
-use std::time::Duration;
+use std::io::Read;
 use std::sync::Arc;
-use std::io::{Write, Read}; // สำหรับการอ่านและเขียนข้อมูลจาก serial port
+use std::time::Duration;
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
+use tokio::sync::Mutex;
 
-/// ส่งข้อมูล COM port กลับไปให้ React
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ComPortInfo {
@@ -21,7 +24,9 @@ fn list_com_ports() -> Vec<ComPortInfo> {
     let ports = available_ports().unwrap_or_default();
     ports
         .into_iter()
-        .map(|p| ComPortInfo { port_name: p.port_name })
+        .map(|p| ComPortInfo {
+            port_name: p.port_name,
+        })
         .collect()
 }
 
@@ -38,29 +43,58 @@ impl Default for AppState {
 }
 
 #[tauri::command]
-async fn connect_com_port(port_name: String, state: State<'_, AppState>, app_handle: AppHandle) -> Result<String, String> {
+async fn connect_com_port(
+    port_name: String,
+    state: State<'_, AppState>,
+    app_handle: AppHandle,
+) -> Result<String, String> {
     let mut ports = state.ports.lock().await;
 
     if ports.contains_key(&port_name) {
         return Err(format!("Port {} already connected", port_name));
     }
 
-    // ปรับปรุง timeout ให้มากขึ้น
     match serialport::new(&port_name, 9600)
-        .timeout(Duration::from_secs(5)) // เพิ่มเวลา timeout เป็น 5 วินาที
+        .timeout(Duration::from_millis(100))
         .open()
     {
         Ok(port) => {
             ports.insert(port_name.clone(), port);
+            drop(ports); // ปล่อย lock ก่อน spawn task
 
-            // เริ่มต้นการอ่านข้อมูลจาก Serial Port หลังจากเชื่อมต่อ
+            // สร้าง background task สำหรับอ่านข้อมูลตลอดเวลา
             tokio::spawn({
                 let app_handle = app_handle.clone();
                 let port_name = port_name.clone();
                 let state = state.ports.clone();
                 async move {
-                    if let Err(e) = read_serial_async(port_name, app_handle, state).await {
-                        eprintln!("Error reading from serial port: {}", e);
+                    loop {
+                        // ตรวจสอบว่า port ยังเชื่อมต่ออยู่หรือไม่
+                        let port_exists = {
+                            let ports = state.lock().await;
+                            ports.contains_key(&port_name)
+                        };
+
+                        if !port_exists {
+                            eprintln!("Port {} disconnected, stopping read loop", port_name);
+                            break;
+                        }
+
+                        // อ่านข้อมูลจาก serial port
+                        match read_from_port(&port_name, state.clone()).await {
+                            Ok(data) => {
+                                if !data.is_empty() {
+                                    // ส่งข้อมูลไปที่ frontend ผ่าน event
+                                    let _ = app_handle.emit("serial-data", data);
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Error reading from {}: {}", port_name, e);
+                            }
+                        }
+
+                        // หน่วงเวลาเล็กน้อยเพื่อไม่ให้ CPU ทำงานหนักเกินไป
+                        tokio::time::sleep(Duration::from_millis(50)).await;
                     }
                 }
             });
@@ -71,8 +105,33 @@ async fn connect_com_port(port_name: String, state: State<'_, AppState>, app_han
     }
 }
 
+// ฟังก์ชันสำหรับอ่านข้อมูลจาก port
+async fn read_from_port(
+    port_name: &str,
+    state: Arc<Mutex<HashMap<String, Box<dyn SerialPort>>>>,
+) -> Result<String, String> {
+    let mut ports = state.lock().await;
+    let port = ports
+        .get_mut(port_name)
+        .ok_or(format!("Port {} not found", port_name))?;
+
+    let mut buf = [0u8; 1024];
+    match port.read(&mut buf) {
+        Ok(n) if n > 0 => {
+            let data = String::from_utf8_lossy(&buf[..n]).to_string();
+            Ok(data)
+        }
+        Ok(_) => Ok(String::new()), // ไม่มีข้อมูล
+        Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => Ok(String::new()), // timeout ปกติ
+        Err(e) => Err(format!("Read error: {}", e)),
+    }
+}
+
 #[tauri::command]
-async fn disconnect_com_port(port_name: String, state: State<'_, AppState>) -> Result<String, String> {
+async fn disconnect_com_port(
+    port_name: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
     let mut ports = state.ports.lock().await;
     if ports.remove(&port_name).is_some() {
         Ok(format!("Disconnected from {}", port_name))
@@ -87,77 +146,22 @@ async fn send_serial_async(
     command: String,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
-    let ports_mutex = state.ports.clone();
-    let command = command.clone();
-
-    let mut ports = ports_mutex.lock().await;
-    let port = ports.get_mut(&port_name)
+    let mut ports = state.ports.lock().await;
+    let port = ports
+        .get_mut(&port_name)
         .ok_or(format!("Port {} not connected", port_name))?;
 
-    let command_bytes = command.as_bytes();
-    println!("Sending command: {}", command);
-
-    match port.write_all(command_bytes) {
-        Ok(_) => {
-            println!("Command sent successfully to {}", port_name);
-            // เพิ่มการเรียกใช้ flush() เพื่อให้มั่นใจว่า data ถูกส่ง
-            port.flush().map_err(|e| format!("Error flushing to port: {}", e))?;
-            Ok(format!("Sent command to {}", port_name))
-        }
-        Err(e) => {
-            eprintln!("Error sending command to {}: {}", port_name, e);
-            Err(format!("Error sending command to {}: {}", port_name, e))
-        }
+    let mut command = command;
+    if !command.ends_with("\r\n") {
+        command.push_str("\r\n");
     }
-}
 
-async fn read_serial_async(port_name: String, app_handle: AppHandle, state: Arc<Mutex<HashMap<String, Box<dyn SerialPort>>>>) -> Result<(), String> {
-    loop {
-        // ดึง Serial Port จาก state
-        let mut port = match get_serial_port(&port_name, state.clone()).await {
-            Some(port) => port,
-            None => return Err(format!("Port {} not found", port_name)),
-        };
+    port.write_all(command.as_bytes())
+        .map_err(|e| format!("Write error: {}", e))?;
+    port.flush()
+        .map_err(|e| format!("Flush error: {}", e))?;
 
-        let mut buf = vec![];
-        let mut tmp = [0u8; 1024];
-
-        // พิมพ์ข้อความการอ่านข้อมูลสำหรับดีบัก
-        eprintln!("Attempting to read from serial port...");
-
-        match port.read(&mut tmp) {
-            Ok(n) if n > 0 => {
-                buf.extend_from_slice(&tmp[..n]);
-                let data = String::from_utf8_lossy(&buf).to_string();
-                if !data.is_empty() {
-                    // ส่งข้อมูลที่อ่านได้ให้ UI
-                    app_handle.emit("serial-data", data.clone()).map_err(|e| format!("Failed to emit event: {}", e))?;
-                    println!("Received data: {}", data);  // ดีบักแสดงข้อมูลที่รับ
-                }
-                buf.clear();
-            }
-            Ok(_) => {
-                // ถ้าไม่มีข้อมูล
-                println!("No data read from the port.");
-            }
-            Err(e) => {
-                // จัดการข้อผิดพลาดจากการอ่าน
-                eprintln!("Error reading from port: {:?}", e);
-                if e.kind() == std::io::ErrorKind::TimedOut {
-                    eprintln!("Timeout reached while reading from port.");
-                }
-                return Err(format!("Error reading from port: {}", e));
-            }
-        }
-
-        // Polling ทุก 500ms
-        tokio::time::sleep(Duration::from_millis(500)).await;
-    }
-}
-
-async fn get_serial_port(port_name: &str, state: Arc<Mutex<HashMap<String, Box<dyn SerialPort>>>>) -> Option<Box<dyn SerialPort>> {
-    let ports = state.lock().await;
-    ports.get(port_name).map(|port| port.try_clone().ok()).flatten()
+    Ok(format!("Command sent to {}", port_name))
 }
 
 fn main() {
@@ -170,7 +174,6 @@ fn main() {
             send_serial_async
         ])
         .setup(|app| {
-            // ตั้งตำแหน่งหน้าต่างตอนเปิดโปรแกรม
             if let Some(window) = app.get_webview_window("main") {
                 window
                     .set_position(PhysicalPosition { x: 50, y: 350 })
