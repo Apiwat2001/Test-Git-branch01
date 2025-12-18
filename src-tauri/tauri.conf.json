@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "tailwind_react_tauri",
+        "title": "RdaqToolV1.1",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "x": 100,
+        "y": 100
       }
     ],
     "security": {
