@@ -283,6 +283,48 @@ function App() {
               {statusMessage || "Waiting for data..."}
             </div>
 
+            {/* Custom Command */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={customCommand}
+                onChange={(e) => setCustomCommand(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && connected && !sending) {
+                    sendCommand(customCommand);
+                  }
+                }}
+                placeholder="Enter custom command"
+                className="w-[280px] px-5 py-3 rounded border border-gray-300
+                          bg-black text-green-300
+                          text-[15px] font-mono
+                          placeholder:text-[14px]
+                          focus:outline-none focus:ring-1 focus:ring-green-500"
+              />
+
+              <button
+                onClick={() => sendCommand(customCommand)}
+                disabled={!connected || sending}
+                className={`w-16 px-2 py-2 text-[15px] rounded-md shadow
+                  ${
+                    !connected || sending
+                      ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"
+                  }
+                `}
+              >
+                Send
+              </button>
+
+              <button
+                onClick={clearMessage}
+                className="px-4 py-2 text-[15px] bg-yellow-600 text-white rounded-md shadow
+                          hover:bg-yellow-500 active:bg-yellow-700"
+              >
+                Clear
+              </button>
+            </div>
+
             {/* ปุ่มควบคุม */}
             <div className="flex gap-3">
               <button
@@ -296,45 +338,9 @@ function App() {
               >
                 {sending ? "Sending..." : "Device Info"}
               </button>
-
-              <button
-                onClick={clearMessage}
-                className="px-4 py-2 bg-yellow-600 text-white rounded-md shadow hover:bg-yellow-500 active:bg-yellow-700"
-              >
-                Clear
-              </button>
             </div>
 
-            {/* Custom Command */}
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={customCommand}
-                onChange={(e) => setCustomCommand(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter" && connected && !sending) {
-                    sendCommand(customCommand);
-                    setCustomCommand("");
-                  }
-                }}
-                placeholder="Enter custom command"
-                className="flex-1 px-3 py-2 rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-sm font-mono"
-              />
-              <button
-                onClick={() => {
-                  sendCommand(customCommand);
-                  setCustomCommand("");
-                }}
-                disabled={!connected || sending}
-                className={`px-4 py-2 rounded-md shadow ${
-                  !connected || sending
-                    ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
-                    : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"
-                }`}
-              >
-                Send
-              </button>
-            </div>
+
           </div>
         )}
 
@@ -360,4 +366,4 @@ function App() {
 
 export default App;
 
-/* v1.8beta3 */
+/* v1.9beta1 */
