@@ -91,7 +91,7 @@ async fn connect_com_port(
                         match read_from_port(&port_name, state.clone(), buffers.clone()).await {
                             Ok(lines) => {
                                 for line in lines {
-                                    app_handle.emit("serial-data", line).ok();
+                                    app_handle.emit("serial-data", format!("{}\n", line)).ok();
                                 }
                             }
                             Err(_e) => break,
@@ -109,7 +109,6 @@ async fn connect_com_port(
     }
 }
 
-// ฟังก์ชันสำหรับอ่านข้อมูลจาก port
 async fn read_from_port(
     port_name: &str,
     ports: Arc<Mutex<HashMap<String, Box<dyn SerialPort>>>>,
@@ -137,23 +136,17 @@ async fn read_from_port(
     let mut lines = Vec::new();
 
     loop {
-        // หา CR หรือ LF ตัวแรก
-        let pos = match (
-            line_buf.find('\n'),
-            line_buf.find('\r'),
-        ) {
-            (Some(n), Some(r)) => Some(n.min(r)),
-            (Some(n), None) => Some(n),
-            (None, Some(r)) => Some(r),
-            (None, None) => None,
-        };
+        // หา CR หรือ LF
+        let pos = line_buf
+            .find('\r')
+            .or_else(|| line_buf.find('\n'));
 
         let Some(pos) = pos else { break };
-        let line = line_buf[..pos].to_string();
-        // ตัด \r หรือ \n
-        let mut cut = pos + 1;
 
-        // ถ้าเป็น CRLF → ตัด 2 ตัว
+        let mut line = line_buf[..pos].to_string();
+
+        // ตัด CRLF / CR / LF
+        let mut cut = pos + 1;
         if line_buf.as_bytes().get(pos) == Some(&b'\r')
             && line_buf.as_bytes().get(pos + 1) == Some(&b'\n')
         {
@@ -162,8 +155,9 @@ async fn read_from_port(
 
         *line_buf = line_buf[cut..].to_string();
 
+        line = line.trim().to_string();
         if !line.is_empty() {
-            lines.push(line);
+            lines.push(line); 
         }
     }
 
@@ -199,17 +193,15 @@ async fn send_serial_async(
         .get_mut(&port_name)
         .ok_or(format!("Port {} not connected", port_name))?;
 
-    let mut command = command;
-    if !command.ends_with("\r\n") {
-        command.push_str("\r\n");
-    }
+    let mut command = command.trim_end_matches(&['\r', '\n'][..]).to_string();
+    command.push('\r'); 
 
     port.write_all(command.as_bytes())
         .map_err(|e| format!("Write error: {}", e))?;
     port.flush()
         .map_err(|e| format!("Flush error: {}", e))?;
 
-    Ok(format!("Command sent to {}", port_name))
+    Ok("Command sent".into())
 }
 
 fn main() {
