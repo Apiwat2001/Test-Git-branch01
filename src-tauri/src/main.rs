@@ -12,12 +12,27 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
 use tokio::sync::Mutex;
 use std::io::{Read, Write};
+use tokio::net::TcpStream;
+use tokio::io::AsyncWriteExt;
 
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+
 struct ComPortInfo {
     port_name: String,
+}
+
+struct TcpState {
+    connections: Arc<Mutex<HashMap<String, TcpStream>>>,
+}
+
+impl Default for TcpState {
+    fn default() -> Self {
+        Self {
+            connections: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
 }
 
 #[tauri::command]
@@ -211,14 +226,105 @@ async fn send_serial_async(
     Ok("Command sent".into())
 }
 
+#[tauri::command]
+async fn connect_tcp(
+    ip: String,
+    port: u16,
+    state: State<'_, TcpState>,
+    app_handle: AppHandle,
+) -> Result<String, String> {
+    let addr = format!("{}:{}", ip, port);
+    let stream = TcpStream::connect(&addr)
+    .await
+    .map_err(|e| format!("Connect failed: {}", e))?;
+
+        // clone addr สำหรับ task
+        let addr_for_task = addr.clone();
+
+        // insert ก่อน
+        state
+            .connections
+            .lock()
+            .await
+            .insert(addr.clone(), stream);
+
+        // spawn task อ่านข้อมูล
+        let connections = state.connections.clone();
+        let app_handle = app_handle.clone();
+
+        tokio::spawn(async move {
+            let mut buf = [0u8; 1024];
+
+            loop {
+                let mut conns = connections.lock().await;
+                let Some(stream) = conns.get_mut(&addr_for_task) else {
+                    break;
+                };
+
+                match stream.try_read(&mut buf) {
+                    Ok(n) if n > 0 => {
+                        let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                        app_handle.emit("tcp-data", data).ok();
+                    }
+                    _ => {}
+                }
+
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+        });
+    Ok(format!("Connected TCP {}", addr))
+}
+
+#[tauri::command]
+async fn disconnect_tcp(
+    ip: String,
+    port: u16,
+    state: State<'_, TcpState>,
+) -> Result<String, String> {
+    let addr = format!("{}:{}", ip, port);
+    let mut conns = state.connections.lock().await;
+
+    if conns.remove(&addr).is_some() {
+        Ok(format!("Disconnected {}", addr))
+    } else {
+        Err("TCP not connected".into())
+    }
+}
+
+#[tauri::command]
+async fn send_tcp(
+    ip: String,
+    port: u16,
+    data: String,
+    state: State<'_, TcpState>,
+) -> Result<String, String> {
+    let addr = format!("{}:{}", ip, port);
+    let mut conns = state.connections.lock().await;
+
+    let stream = conns
+        .get_mut(&addr)
+        .ok_or("TCP not connected")?;
+
+    stream
+        .write_all(data.as_bytes())
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok("TCP data sent".into())
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(AppState::default())
+        .manage(TcpState::default())
         .invoke_handler(tauri::generate_handler![
             list_com_ports,
             connect_com_port,
             disconnect_com_port,
-            send_serial_async
+            send_serial_async,
+            connect_tcp,
+            disconnect_tcp,
+            send_tcp
         ])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {

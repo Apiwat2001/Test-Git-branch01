@@ -18,7 +18,9 @@ function App() {
   const messageRef = useRef(null);
   const [customCommand, setCustomCommand] = useState("");
   const [baudRate, setBaudRate] = useState(9600);
-
+  const [ipAddress, setIpAddress] = useState("192.168.");
+  const [ipPort, setIpPort] = useState(5555);
+  const [connectionMode, setConnectionMode] = useState("serial");
 
   const clearMessage = () => {
     setStatusMessage("");
@@ -143,12 +145,12 @@ function App() {
       <div className="flex-1 p-6 overflow-auto">
         {/* Frame 1 ====================================================================================================================================================*/}
         {activeFrame === "frame1" && (
-          <div className="relative space-y-5">
+          <div className="relative space-y-3">
             <h2 className="text-2xl font-bold text-gray-200">COM Port Scanner</h2>
             
             <div className="flex items-center gap-3">
               <select
-                className="px-3 py-2 rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-[14px]"
+                className="w-25 px-3 py-0.5 text-[14px] rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500"
                 value={selectedPort}
                 onChange={async (e) => {
                   const newPort = e.target.value;
@@ -164,18 +166,22 @@ function App() {
                   setSelectedPort(newPort);
                 }}
               >
-                <option className="text-[14px]" value="">
-                  -- Select COM Port --
-                </option>
-                {ports.map((p, i) => (
-                  <option key={i} value={p.portName}>
-                    {p.portName}
+                  <option className="text-[12px]" value="">
+                    -- Select COM Port --
                   </option>
-                ))}
+                  {ports.map((p, i) => (
+                    <option
+                      key={i}
+                      value={p.portName}
+                      className="text-[12px]"
+                    >
+                      {p.portName}
+                    </option>
+                  ))}
               </select>
               <button
                 onClick={scanComPort}
-                className="px-4 py-2 bg-green-600 text-white rounded-md shadow hover:bg-green-500 active:bg-green-700 transition"
+                className="px-1 py-[3px] bg-blue-700 text-[14px] text-white rounded-md shadow hover:bg-green-500 active:bg-green-700 transition"
               >
                 Refresh
               </button>
@@ -185,14 +191,69 @@ function App() {
                   type="number"
                   value={baudRate}
                   onChange={(e) => setBaudRate(Number(e.target.value))}
-                  className="w-32 px-3 py-2 rounded border border-gray-300 bg-black text-green-300
-                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[14px]"
+                  className="w-30 px-3 py-1 rounded border border-gray-300 bg-black text-green-300
+                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[12px]"
                   placeholder="9600"
                 />
               </div>
             </div>
+              {/* IP / Port Input */}
+              <div className="flex items-center gap-3">
+                <label className="text-gray-300 text-sm">IP</label>
+                <input
+                  type="text"
+                  value={ipAddress}
+                  onChange={(e) => setIpAddress(e.target.value)}
+                  className="w-40 px-3 py-1 rounded border border-gray-300 bg-black text-yellow-400
+                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[14px]"
+                  placeholder="192.168.x.x"
+                />
 
-            <div className="flex items-center gap-3">
+                <label className="text-gray-300 text-sm">Port</label>
+                <input
+                  type="number"
+                  value={ipPort}
+                  onChange={(e) => setIpPort(Number(e.target.value))}
+                  className="w-20 px-3 py-1 rounded border border-gray-300 bg-black text-yellow-400
+                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[14px]"
+                  placeholder="5555"
+                />
+            </div>
+
+            {/* Connection Mode Toggle */}
+            <div className="flex items-center gap-4 mt-7">
+              <span
+                className={`text-sm font-semibold ${
+                  connectionMode === "serial" ? "text-green-400" : "text-gray-400"
+                }`}
+              >
+                Serial Port
+              </span>
+
+              <button
+                onClick={() =>
+                  setConnectionMode((prev) => (prev === "serial" ? "tcp" : "serial"))
+                }
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300
+                  ${connectionMode === "tcp" ? "bg-yellow-500" : "bg-green-600"}`}
+              >
+                <span
+                  className={`absolute top-1 left-1 w-5 h-5 bg-white rounded-full
+                    transition-transform duration-300
+                    ${connectionMode === "tcp" ? "translate-x-7" : ""}`}
+                />
+              </button>
+
+              <span
+                className={`text-sm font-semibold ${
+                  connectionMode === "tcp" ? "text-yellow-400" : "text-gray-400"
+                }`}
+              >
+                TCP/IP
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 mt-7">
               <button
                 onClick={connectPort}
                 disabled={connected || !selectedPort}
@@ -383,4 +444,4 @@ function App() {
 
 export default App;
 
-/* v1.9beta2 */
+/* v1.9beta3 */
