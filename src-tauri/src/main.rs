@@ -45,10 +45,10 @@ impl Default for AppState {
     }
 }
 
-
 #[tauri::command]
 async fn connect_com_port(
     port_name: String,
+    baud_rate: u32, // 👈 รับ baudrate จาก frontend
     state: State<'_, AppState>,
     app_handle: AppHandle,
 ) -> Result<String, String> {
@@ -58,25 +58,28 @@ async fn connect_com_port(
         return Err(format!("Port {} already connected", port_name));
     }
 
-    match serialport::new(&port_name, 9600)
+    match serialport::new(&port_name, baud_rate) // 👈 ใช้ baudrate ที่ส่งมา
         .timeout(Duration::from_millis(100))
         .open()
     {
         Ok(port) => {
             ports.insert(port_name.clone(), port);
-            state.buffers.lock().await.insert(port_name.clone(), String::new());
+            state
+                .buffers
+                .lock()
+                .await
+                .insert(port_name.clone(), String::new());
+
             drop(ports); // ปล่อย lock ก่อน spawn task
 
             let buffers = state.buffers.clone();
-            // สร้าง background task สำหรับอ่านข้อมูลตลอดเวลา
             tokio::spawn({
                 let app_handle = app_handle.clone();
                 let port_name = port_name.clone();
                 let state = state.ports.clone();
-                let buffers = buffers.clone();
+
                 async move {
                     loop {
-                        // ตรวจสอบว่า port ยังเชื่อมต่ออยู่หรือไม่
                         let port_exists = {
                             let ports = state.lock().await;
                             ports.contains_key(&port_name)
@@ -87,25 +90,29 @@ async fn connect_com_port(
                             break;
                         }
 
-                        // อ่านข้อมูลจาก serial port
                         match read_from_port(&port_name, state.clone(), buffers.clone()).await {
                             Ok(lines) => {
                                 for line in lines {
                                     app_handle.emit("serial-data", line).ok();
                                 }
                             }
-                            Err(_e) => break,
+                            Err(_) => break,
                         }
 
-                        // หน่วงเวลาเล็กน้อยเพื่อไม่ให้ CPU ทำงานหนักเกินไป
                         tokio::time::sleep(Duration::from_millis(50)).await;
                     }
                 }
             });
 
-            Ok(format!("Connected to {}", port_name))
+            Ok(format!(
+                "Connected to {} @ {} baud",
+                port_name, baud_rate
+            ))
         }
-        Err(e) => Err(format!("Failed to connect {}: {}", port_name, e)),
+        Err(e) => Err(format!(
+            "Failed to connect {} @ {} baud: {}",
+            port_name, baud_rate, e
+        )),
     }
 }
 

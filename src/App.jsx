@@ -17,6 +17,8 @@ function App() {
   const [sending, setSending] = useState(false);
   const messageRef = useRef(null);
   const [customCommand, setCustomCommand] = useState("");
+  const [baudRate, setBaudRate] = useState(9600);
+
 
   const clearMessage = () => {
     setStatusMessage("");
@@ -69,7 +71,11 @@ function App() {
     if (!selectedPort) return alert("Please select a COM port first.");
     try {
       console.log("Connecting to port:", selectedPort);
-      const res = await invoke("connect_com_port", { portName: selectedPort });
+      const res = await invoke("connect_com_port", {
+                        portName: selectedPort,
+                        baudRate: baudRate,
+                      });
+
       console.log("Connect result:", res);
       setConnected(true);
       setStatusMessage(""); // เคลียร์ข้อความเก่า
@@ -135,7 +141,7 @@ function App() {
 
       {/* Content */}
       <div className="flex-1 p-6 overflow-auto">
-        {/* Frame 1 */}
+        {/* Frame 1 ====================================================================================================================================================*/}
         {activeFrame === "frame1" && (
           <div className="relative space-y-5">
             <h2 className="text-2xl font-bold text-gray-200">COM Port Scanner</h2>
@@ -173,6 +179,17 @@ function App() {
               >
                 Refresh
               </button>
+              <div className="flex items-center gap-3">
+                <label className="text-gray-300 text-sm">Baudrate</label>
+                <input
+                  type="number"
+                  value={baudRate}
+                  onChange={(e) => setBaudRate(Number(e.target.value))}
+                  className="w-32 px-3 py-2 rounded border border-gray-300 bg-black text-green-300
+                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[14px]"
+                  placeholder="9600"
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-3">
@@ -209,7 +226,7 @@ function App() {
           </div>
         )}
 
-        {/* Frame 2 */}
+        {/* Frame 2 ====================================================================================================================================================*/}
         {activeFrame === "frame2" && (
           <div className="relative space-y-4">
             <h2 className="text-2xl font-bold text-gray-200">Digital Test</h2>
@@ -344,7 +361,7 @@ function App() {
           </div>
         )}
 
-        {/* Frame 3 */}
+        {/* Frame 3 ====================================================================================================================================================*/}
         {activeFrame === "frame3" && (
           <div>
             <h2 className="text-xl font-bold text-gray-200">Frame 3</h2>
@@ -352,7 +369,7 @@ function App() {
           </div>
         )}
 
-        {/* Frame 4 */}
+        {/* Frame 4 ====================================================================================================================================================*/}
         {activeFrame === "frame4" && (
           <div>
             <h2 className="text-xl font-bold text-gray-200">Frame 4</h2>
@@ -366,4 +383,4 @@ function App() {
 
 export default App;
 
-/* v1.9beta1 */
+/* v1.9beta2 */
