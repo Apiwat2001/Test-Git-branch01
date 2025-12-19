@@ -7,11 +7,12 @@ use serialport::available_ports;
 use serialport::SerialPort;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::Read;
 use std::sync::Arc;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
 use tokio::sync::Mutex;
+use std::io::{Read, Write};
+
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,15 +33,18 @@ fn list_com_ports() -> Vec<ComPortInfo> {
 
 struct AppState {
     ports: Arc<Mutex<HashMap<String, Box<dyn SerialPort>>>>,
+    buffers: Arc<Mutex<HashMap<String, String>>>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         AppState {
             ports: Arc::new(Mutex::new(HashMap::new())),
+            buffers: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
+
 
 #[tauri::command]
 async fn connect_com_port(
@@ -60,13 +64,16 @@ async fn connect_com_port(
     {
         Ok(port) => {
             ports.insert(port_name.clone(), port);
+            state.buffers.lock().await.insert(port_name.clone(), String::new());
             drop(ports); // ปล่อย lock ก่อน spawn task
 
+            let buffers = state.buffers.clone();
             // สร้าง background task สำหรับอ่านข้อมูลตลอดเวลา
             tokio::spawn({
                 let app_handle = app_handle.clone();
                 let port_name = port_name.clone();
                 let state = state.ports.clone();
+                let buffers = buffers.clone();
                 async move {
                     loop {
                         // ตรวจสอบว่า port ยังเชื่อมต่ออยู่หรือไม่
@@ -81,16 +88,13 @@ async fn connect_com_port(
                         }
 
                         // อ่านข้อมูลจาก serial port
-                        match read_from_port(&port_name, state.clone()).await {
-                            Ok(data) => {
-                                if !data.is_empty() {
-                                    // ส่งข้อมูลไปที่ frontend ผ่าน event
-                                    let _ = app_handle.emit("serial-data", data);
+                        match read_from_port(&port_name, state.clone(), buffers.clone()).await {
+                            Ok(lines) => {
+                                for line in lines {
+                                    app_handle.emit("serial-data", line).ok();
                                 }
                             }
-                            Err(e) => {
-                                eprintln!("Error reading from {}: {}", port_name, e);
-                            }
+                            Err(_e) => break,
                         }
 
                         // หน่วงเวลาเล็กน้อยเพื่อไม่ให้ CPU ทำงานหนักเกินไป
@@ -105,26 +109,59 @@ async fn connect_com_port(
     }
 }
 
-// ฟังก์ชันสำหรับอ่านข้อมูลจาก port
 async fn read_from_port(
     port_name: &str,
-    state: Arc<Mutex<HashMap<String, Box<dyn SerialPort>>>>,
-) -> Result<String, String> {
-    let mut ports = state.lock().await;
+    ports: Arc<Mutex<HashMap<String, Box<dyn SerialPort>>>>,
+    buffers: Arc<Mutex<HashMap<String, String>>>,
+) -> Result<Vec<String>, String> {
+    let mut ports = ports.lock().await;
     let port = ports
         .get_mut(port_name)
         .ok_or(format!("Port {} not found", port_name))?;
 
-    let mut buf = [0u8; 1024];
-    match port.read(&mut buf) {
-        Ok(n) if n > 0 => {
-            let data = String::from_utf8_lossy(&buf[..n]).to_string();
-            Ok(data)
+    let mut buf = [0u8; 256];
+    let n = match port.read(&mut buf) {
+        Ok(n) if n > 0 => n,
+        Ok(_) => return Ok(vec![]),
+        Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => return Ok(vec![]),
+        Err(e) => return Err(e.to_string()),
+    };
+
+    let chunk = String::from_utf8_lossy(&buf[..n]);
+
+    let mut buffers = buffers.lock().await;
+    let line_buf = buffers.entry(port_name.to_string()).or_default();
+    line_buf.push_str(&chunk);
+
+    let mut lines = Vec::new();
+
+    loop {
+        // หา CR หรือ LF
+        let pos = line_buf
+            .find('\r')
+            .or_else(|| line_buf.find('\n'));
+
+        let Some(pos) = pos else { break };
+
+        let mut line = line_buf[..pos].to_string();
+
+        // ตัด CRLF / CR / LF
+        let mut cut = pos + 1;
+        if line_buf.as_bytes().get(pos) == Some(&b'\r')
+            && line_buf.as_bytes().get(pos + 1) == Some(&b'\n')
+        {
+            cut += 1;
         }
-        Ok(_) => Ok(String::new()), // ไม่มีข้อมูล
-        Err(ref e) if e.kind() == std::io::ErrorKind::TimedOut => Ok(String::new()), // timeout ปกติ
-        Err(e) => Err(format!("Read error: {}", e)),
+
+        *line_buf = line_buf[cut..].to_string();
+
+        line = line.trim().to_string();
+        if !line.is_empty() {
+            lines.push(line); 
+        }
     }
+
+    Ok(lines)
 }
 
 #[tauri::command]
@@ -133,7 +170,12 @@ async fn disconnect_com_port(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let mut ports = state.ports.lock().await;
-    if ports.remove(&port_name).is_some() {
+    let mut buffers = state.buffers.lock().await;
+
+    let removed = ports.remove(&port_name);
+    buffers.remove(&port_name);
+
+    if removed.is_some() {
         Ok(format!("Disconnected from {}", port_name))
     } else {
         Err(format!("Port {} not connected", port_name))
@@ -151,17 +193,15 @@ async fn send_serial_async(
         .get_mut(&port_name)
         .ok_or(format!("Port {} not connected", port_name))?;
 
-    let mut command = command;
-    if !command.ends_with("\r\n") {
-        command.push_str("\r\n");
-    }
+    let mut command = command.trim_end_matches(&['\r', '\n'][..]).to_string();
+    command.push('\r'); 
 
     port.write_all(command.as_bytes())
         .map_err(|e| format!("Write error: {}", e))?;
     port.flush()
         .map_err(|e| format!("Flush error: {}", e))?;
 
-    Ok(format!("Command sent to {}", port_name))
+    Ok("Command sent".into())
 }
 
 fn main() {

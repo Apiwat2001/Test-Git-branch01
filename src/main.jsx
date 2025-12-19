@@ -4,7 +4,5 @@ import App from './App.jsx';  // เพียงแค่ import App.jsx เท�
 import './index.css';         // นำเข้าไฟล์ CSS ที่เกี่ยวข้อง
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
     <App />
-  </React.StrictMode>,
 );

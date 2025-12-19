@@ -51,7 +51,10 @@ function App() {
       unlisten = await listen("serial-data", (event) => {
         const data = event.payload;
         console.log("Received serial data:", data);
-        setStatusMessage((prev) => prev + data);
+        setStatusMessage((prev) => {
+        const text = data.endsWith("\n") ? data : data + "\n";
+        return prev + text;
+      });
       });
     };
 
@@ -357,6 +360,5 @@ function App() {
 
 export default App;
 
-
-/* v1.7beta1 */
+/* version 1.8 */
 
