@@ -26,6 +26,11 @@ function App() {
     setStatusMessage("");
   };
 
+  const canConnect =
+    connectionMode === "serial"
+      ? selectedPort
+      : ipAddress && ipPort;
+
   async function scanComPort() {
     try {
       const result = await invoke("list_com_ports");
@@ -49,74 +54,109 @@ function App() {
 
   // ฟัง event จาก Rust backend สำหรับข้อมูล serial
   useEffect(() => {
-    let unlisten;
+    let unSerial;
+    let unTcp;
 
-    const setupListener = async () => {
-      unlisten = await listen("serial-data", (event) => {
-        const data = event.payload;
-        console.log("Received serial data:", data);
-        setStatusMessage((prev) => {
-        const text = data.endsWith("\n") ? data : data + "\n";
-        return prev + text;
+    const setup = async () => {
+      unSerial = await listen("serial-data", (e) => {
+        if (connectionMode !== "serial") return;
+
+        setStatusMessage(p => {
+          const t = e.payload;
+          return p + (t.endsWith("\n") ? t : t + "\n");
+        });
       });
+
+      unTcp = await listen("tcp-data", (e) => {
+        if (connectionMode !== "tcp") return;
+
+        setStatusMessage(p => {
+          const t = e.payload;
+          return p + (t.endsWith("\n") ? t : t + "\n");
+        });
       });
     };
 
-    setupListener();
+  setup();
 
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, []);
+  return () => {
+    unSerial?.();
+    unTcp?.();
+  };
+}, [connectionMode]);
+
+useEffect(() => {
+  if (connected) {
+    disconnectPort();
+  }
+}, [connectionMode]);
 
   async function connectPort() {
-    if (!selectedPort) return alert("Please select a COM port first.");
     try {
-      console.log("Connecting to port:", selectedPort);
-      const res = await invoke("connect_com_port", {
-                        portName: selectedPort,
-                        baudRate: baudRate,
-                      });
+      if (connectionMode === "serial") {
+        if (!selectedPort) return alert("Select COM port");
 
-      console.log("Connect result:", res);
+        await invoke("connect_com_port", {
+          portName: selectedPort,
+          baudRate,
+        });
+      } else {
+        await invoke("connect_tcp", {
+          ip: ipAddress,
+          port: ipPort,
+        });
+      }
+
       setConnected(true);
-      setStatusMessage(""); // เคลียร์ข้อความเก่า
+      setStatusMessage("");
     } catch (e) {
-      console.error("Error connecting:", e);
-      alert("Failed to connect: " + (e?.message || e));
+      console.error(e);
+      alert(e);
       setConnected(false);
     }
   }
 
   async function disconnectPort() {
     try {
-      const res = await invoke("disconnect_com_port", { portName: selectedPort });
-      console.log("Disconnect result:", res);
+      if (connectionMode === "serial") {
+        await invoke("disconnect_com_port", {
+          portName: selectedPort,
+        });
+      } else {
+        await invoke("disconnect_tcp", {
+          ip: ipAddress,
+          port: ipPort,
+        });
+      }
       setConnected(false);
     } catch (e) {
-      console.error("Error disconnecting:", e);
-      alert("Failed to disconnect: " + (e?.message || e));
+      console.error(e);
     }
   }
 
   async function sendCommand(command) {
-    if (!connected) return alert("Please connect a COM port first.");
-    if (!command.trim()) return alert("Please enter a command.");
+    if (!connected) return;
 
     setSending(true);
 
     try {
-      const sendResponse = await invoke("send_serial_async", {
-        portName: selectedPort,
-        command: command,
-      });
-      console.log("Sent response:", sendResponse);
-      
-      // แสดงคำสั่งที่ส่งไป
-      setStatusMessage((prev) => prev + "\n> " + command.trim() + "\n");
-    } catch (err) {
-      console.error("Error:", err);
-      setStatusMessage((prev) => prev + "\nError: " + err);
+      if (connectionMode === "serial") {
+        await invoke("send_serial_async", {
+          portName: selectedPort,
+          command,
+        });
+      } else {
+        await invoke("send_tcp", {
+          ip: ipAddress,
+          port: ipPort,
+          data: command + "\r\n",
+        });
+      }
+
+      setStatusMessage((p) => p + `> ${command}\n`);
+
+    } catch (e) {
+      console.error(e);
     } finally {
       setSending(false);
     }
@@ -256,7 +296,7 @@ function App() {
             <div className="flex items-center gap-3 mt-7">
               <button
                 onClick={connectPort}
-                disabled={connected || !selectedPort}
+                disabled={connected || !canConnect}
                 className={
                   connected || !selectedPort
                     ? "px-4 py-2 bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
@@ -444,4 +484,4 @@ function App() {
 
 export default App;
 
-/* v1.9beta3 */
+/* v1.9beta4 */
