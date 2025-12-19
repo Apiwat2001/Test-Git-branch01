@@ -360,4 +360,4 @@ function App() {
 
 export default App;
 
-/* v1.8beta2 */
+/* v1.8beta3 */

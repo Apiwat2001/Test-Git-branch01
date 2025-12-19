@@ -91,7 +91,7 @@ async fn connect_com_port(
                         match read_from_port(&port_name, state.clone(), buffers.clone()).await {
                             Ok(lines) => {
                                 for line in lines {
-                                    app_handle.emit("serial-data", format!("{}\n", line)).ok();
+                                    app_handle.emit("serial-data", line).ok();
                                 }
                             }
                             Err(_e) => break,
