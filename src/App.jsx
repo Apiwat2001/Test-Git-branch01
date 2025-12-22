@@ -42,7 +42,7 @@ function App() {
     }
   }
 
-  // Auto-scroll เมื่อมีข้อความใหม่
+  // auto scroll เมื่อมีข้อความใหม่
   useEffect(() => {
     if (messageRef.current) {
       messageRef.current.scrollTop = messageRef.current.scrollHeight;
@@ -53,7 +53,7 @@ function App() {
     scanComPort();
   }, []);
 
-  // ฟัง event จาก Rust backend สำหรับข้อมูล serial
+  // ฟัง event จาก rust สำหรับข้อมูล serial
   useEffect(() => {
     let unSerial;
     let unTcp;
@@ -178,16 +178,16 @@ useEffect(() => {
       setSending(false);
     }
   }
-
+  {/* Root */}
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen cursor-custom1">
       {/* Sidebar */}
       <div className="flex flex-col w-52 bg-gray-800 text-white p-4 shadow-lg">
         {["frame1", "frame2", "frame3", "frame4"].map((frame) => (
           <button
             key={frame}
             onClick={() => setActiveFrame(frame)}
-            className={`w-full mb-2 px-4 py-2 rounded-md text-left transition ${
+            className={`cursor-custom1 w-full mb-2 px-4 py-2 rounded-md text-left transition ${
               activeFrame === frame
                 ? "bg-green-600 shadow-md"
                 : "bg-gray-700 hover:bg-gray-600 active:bg-gray-900"
@@ -203,11 +203,12 @@ useEffect(() => {
         {/* Frame 1 ====================================================================================================================================================*/}
         {activeFrame === "frame1" && (
           <div className="relative space-y-3">
-            <h2 className="text-2xl font-bold text-gray-200">COM Port Scanner</h2>
+            <h2 className="text-2xl font-bold text-gray-200">Device Info</h2>
             
             <div className="flex items-center gap-3">
               <select
-                className="w-25 px-3 py-0.5 text-[14px] rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="w-25 px-3 py-0.5 text-[14px] rounded border border-gray-300 
+                bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-custom1"
                 value={selectedPort}
                 onChange={async (e) => {
                   const newPort = e.target.value;
@@ -238,7 +239,8 @@ useEffect(() => {
               </select>
               <button
                 onClick={scanComPort}
-                className="px-1 py-[3px] bg-blue-700 text-[14px] text-white rounded-md shadow hover:bg-green-500 active:bg-green-700 transition"
+                className="px-1 py-[3px] bg-blue-700 text-[14px] text-white rounded-md shadow 
+                           hover:bg-green-500 active:bg-green-700 transition cursor-custom1"
               >
                 Refresh
               </button>
@@ -249,7 +251,7 @@ useEffect(() => {
                   value={baudRate}
                   onChange={(e) => setBaudRate(Number(e.target.value))}
                   className="w-30 px-3 py-1 rounded border border-gray-300 bg-black text-green-300
-                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[12px]"
+                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[12px] cursor-write"
                   placeholder="9600"
                 />
               </div>
@@ -262,7 +264,7 @@ useEffect(() => {
                   value={ipAddress}
                   onChange={(e) => setIpAddress(e.target.value)}
                   className="w-40 px-3 py-1 rounded border border-gray-300 bg-black text-yellow-400
-                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[14px]"
+                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[14px] cursor-write"
                   placeholder="192.168.x.x"
                 />
 
@@ -272,7 +274,7 @@ useEffect(() => {
                   value={ipPort}
                   onChange={(e) => setIpPort(Number(e.target.value))}
                   className="w-20 px-3 py-1 rounded border border-gray-300 bg-black text-yellow-400
-                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[14px]"
+                            focus:outline-none focus:ring-2 focus:ring-green-500 text-[14px] cursor-write"
                   placeholder="5555"
                 />
             </div>
@@ -291,7 +293,7 @@ useEffect(() => {
                 onClick={() =>
                   setConnectionMode((prev) => (prev === "serial" ? "tcp" : "serial"))
                 }
-                className={`relative w-14 h-7 rounded-full transition-colors duration-300
+                className={`relative w-14 h-7 rounded-full transition-colors duration-300 cursor-custom1
                   ${connectionMode === "tcp" ? "bg-yellow-500" : "bg-green-600"}`}
               >
                 <span
@@ -316,8 +318,8 @@ useEffect(() => {
                 disabled={connected || !canConnect}
                 className={
                   connected || !selectedPort
-                    ? "px-4 py-2 bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
-                    : "px-4 py-2 bg-green-600 text-white rounded-md shadow hover:bg-green-500 active:bg-green-700"
+                    ? "px-4 py-2 bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed "
+                    : "px-4 py-2 bg-green-600 text-white rounded-md shadow hover:bg-green-500 active:bg-green-700 cursor-custom1"
                 }
               >
                 Connect
@@ -328,7 +330,7 @@ useEffect(() => {
                 className={
                   !connected
                     ? "px-4 py-2 bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
-                    : "px-4 py-2 bg-red-600 text-white rounded-md shadow hover:bg-red-500 active:bg-red-700"
+                    : "px-4 py-2 bg-red-600 text-white rounded-md shadow hover:bg-red-500 active:bg-red-700 cursor-custom1"
                 }
               >
                 Disconnect
@@ -366,7 +368,7 @@ useEffect(() => {
                             bg-black text-blue-300
                             text-[15px] font-mono
                             placeholder:text-[14px]
-                            focus:outline-none focus:ring-1 focus:ring-green-500"
+                            focus:outline-none focus:ring-1 focus:ring-green-500 cursor-write"
                 />
 
                 <button
@@ -376,7 +378,7 @@ useEffect(() => {
                     ${
                       !connected || sending
                         ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
-                        : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"
+                        : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700 cursor-custom1"
                     }
                   `}
                 >
@@ -386,7 +388,7 @@ useEffect(() => {
                 <button
                   onClick={clearMessage}
                   className="px-4 py-2 text-[15px] bg-yellow-600 text-white rounded-md shadow
-                            hover:bg-yellow-500 active:bg-yellow-700"
+                            hover:bg-yellow-500 active:bg-yellow-700 cursor-custom1"
                 >
                   Clear
                 </button>
@@ -396,12 +398,13 @@ useEffect(() => {
 
         {/* Frame 2 ====================================================================================================================================================*/}
         {activeFrame === "frame2" && (
-          <div className="relative space-y-4">
+          <div className="relative space-y-4 cursor-custom1">
             <h2 className="text-2xl font-bold text-gray-200">Digital Test</h2>
             
             <div className="absolute top-[0px] left-45 flex items-center gap-3">
               <select
-                className="w-25 px-3 py-2 rounded border border-gray-300 bg-black text-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 text-[12px]"
+                className="w-25 px-3 py-2 rounded border border-gray-300 bg-black text-green-300
+                 focus:outline-none focus:ring-2 focus:ring-green-500 text-[12px] cursor-custom1"
                 value={selectedPort}
                 onChange={async (e) => {
                   const newPort = e.target.value;
@@ -428,7 +431,8 @@ useEffect(() => {
               </select>
               <button
                 onClick={scanComPort}
-                className="w-15 px-1 py-2 bg-blue-700 text-white rounded-md shadow hover:bg-blue-500 active:bg-blue-600 transition text-[12px]"
+                className="w-15 px-1 py-2 bg-blue-700 text-white rounded-md shadow 
+                hover:bg-blue-500 active:bg-blue-600 transition text-[12px] cursor-custom1"
               >
                 Refresh
               </button>
@@ -441,7 +445,7 @@ useEffect(() => {
                 className={
                   connected || !selectedPort
                     ? "px-1.5 py-1 bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
-                    : "px-1.5 py-1 bg-green-600 text-white rounded-md shadow hover:bg-green-500 active:bg-green-700"
+                    : "px-1.5 py-1 bg-green-600 text-white rounded-md shadow hover:bg-green-500 active:bg-green-700 cursor-custom1"
                 }
               >
                 Connect
@@ -452,7 +456,7 @@ useEffect(() => {
                 className={
                   !connected
                     ? "px-1.5 py-1 bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
-                    : "px-1.5 py-1 bg-red-600 text-white rounded-md shadow hover:bg-red-500 active:bg-red-700"
+                    : "px-1.5 py-1 bg-red-600 text-white rounded-md shadow hover:bg-red-500 active:bg-red-700 cursor-custom1"
                 }
               >
                 Disconnect
@@ -467,6 +471,8 @@ useEffect(() => {
             >
               {statusMessage || "Waiting for data..."}
             </div>
+
+            {/* Command-panel */}
             <div className="command-panel overflow-y-auto max-h-60">
               {/* Custom Command */}
               <div className="flex items-center gap-2">
@@ -484,7 +490,7 @@ useEffect(() => {
                             bg-black text-green-300
                             text-[15px] font-mono
                             placeholder:text-[14px]
-                            focus:outline-none focus:ring-1 focus:ring-green-500"
+                            focus:outline-none focus:ring-1 focus:ring-green-500 cursor-write"
                 />
 
                 <button
@@ -494,7 +500,7 @@ useEffect(() => {
                     ${
                       !connected || sending
                         ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
-                        : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"
+                        : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700 cursor-custom1"
                     }
                   `}
                 >
@@ -504,7 +510,7 @@ useEffect(() => {
                 <button
                   onClick={clearMessage}
                   className="px-4 py-2 text-[15px] bg-yellow-600 text-white rounded-md shadow
-                            hover:bg-yellow-500 active:bg-yellow-700"
+                            hover:bg-yellow-500 active:bg-yellow-700 cursor-custom1"
                 >
                   Clear
                 </button>
@@ -518,7 +524,7 @@ useEffect(() => {
                   className={`px-4 py-2 rounded-md shadow ${
                     !connected || sending
                       ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
-                      : "bg-green-600 text-white hover:bg-green-500 active:bg-green-700"
+                      : "bg-green-600 text-white hover:bg-green-500 active:bg-green-700 cursor-custom1"
                   }`}
                 >
                   {sending ? "Sending..." : "Device Info"}
@@ -552,4 +558,4 @@ useEffect(() => {
 export default App;
 
 
-/* v2.1beta1 */
+/* v2.1beta2 */

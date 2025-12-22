@@ -1,6 +1,15 @@
 @import "tailwindcss";
 
-/* สามารถเพิ่ม global style อื่น ๆ ได้ถ้าต้องการ */
+/* global body styles */
 body {
   @apply bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100;
+}
+
+/* custom cursor class */
+.cursor-custom1 {
+  cursor: url("/src/assets/cursor.png") 16 16, auto;
+}
+
+.cursor-write {
+  cursor: url("/src/assets/write.png") 16 16, auto;
 }
