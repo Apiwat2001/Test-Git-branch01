@@ -21,6 +21,7 @@ function App() {
   const [ipAddress, setIpAddress] = useState("192.168.");
   const [ipPort, setIpPort] = useState(5555);
   const [connectionMode, setConnectionMode] = useState("serial");
+  const prevModeRef = useRef(connectionMode);
 
   const clearMessage = () => {
     setStatusMessage("");
@@ -86,9 +87,25 @@ function App() {
 }, [connectionMode]);
 
 useEffect(() => {
-  if (connected) {
-    disconnectPort();
+  if (!connected) {
+    prevModeRef.current = connectionMode;
+    return;
   }
+  //disconnect ตามโหมดเดิม 
+  if(prevModeRef.current === "serial"){
+    invoke("disconnect_com_port",{
+      portName : selectedPort,
+    }).catch(console.error);
+  }
+  else{
+    invoke("disconnect_tcp",{
+      ip : ipAddress,
+      port : ipPort,
+    }).catch(console.error);
+  }
+
+  setConnected(false);
+  prevModeRef.current = connectionMode
 }, [connectionMode]);
 
   async function connectPort() {
@@ -293,7 +310,7 @@ useEffect(() => {
               </span>
             </div>
 
-            <div className="flex items-center gap-3 mt-7">
+            <div className="flex items-center gap-3 mt-7 text-[14px]">
               <button
                 onClick={connectPort}
                 disabled={connected || !canConnect}
@@ -317,13 +334,63 @@ useEffect(() => {
                 Disconnect
               </button>
               <span
-                className={`ml-4 font-bold ${
+                className={`ml-9 font-bold text-[22px] ${
                   connected ? "text-green-400" : "text-red-400"
                 }`}
               >
                 {connected ? "Connected" : "Disconnected"}
               </span>
             </div>
+              {/* Message Area */}
+            <div
+              className="w-full h-50 p-4 bg-black text-blue-300 border border-gray-700 rounded-md 
+                         overflow-auto text-sm font-mono"
+              style={{ whiteSpace: "pre-wrap" }}
+              ref={messageRef}
+            >
+              {statusMessage || "Waiting for data..."}
+            </div>
+              {/* Custom Command */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={customCommand}
+                  onChange={(e) => setCustomCommand(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && connected && !sending) {
+                      sendCommand(customCommand);
+                    }
+                  }}
+                  placeholder="Enter custom command"
+                  className="w-[280px] px-3 py-2 rounded border border-gray-300
+                            bg-black text-blue-300
+                            text-[15px] font-mono
+                            placeholder:text-[14px]
+                            focus:outline-none focus:ring-1 focus:ring-green-500"
+                />
+
+                <button
+                  onClick={() => sendCommand(customCommand)}
+                  disabled={!connected || sending}
+                  className={`w-16 px-2 py-2 text-[15px] rounded-md shadow
+                    ${
+                      !connected || sending
+                        ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"
+                    }
+                  `}
+                >
+                  Send
+                </button>
+
+                <button
+                  onClick={clearMessage}
+                  className="px-4 py-2 text-[15px] bg-yellow-600 text-white rounded-md shadow
+                            hover:bg-yellow-500 active:bg-yellow-700"
+                >
+                  Clear
+                </button>
+              </div>
           </div>
         )}
 
@@ -400,65 +467,65 @@ useEffect(() => {
             >
               {statusMessage || "Waiting for data..."}
             </div>
+            <div className="command-panel overflow-y-auto max-h-60">
+              {/* Custom Command */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={customCommand}
+                  onChange={(e) => setCustomCommand(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && connected && !sending) {
+                      sendCommand(customCommand);
+                    }
+                  }}
+                  placeholder="Enter custom command"
+                  className="w-[280px] px-5 py-3 rounded border border-gray-300
+                            bg-black text-green-300
+                            text-[15px] font-mono
+                            placeholder:text-[14px]
+                            focus:outline-none focus:ring-1 focus:ring-green-500"
+                />
 
-            {/* Custom Command */}
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={customCommand}
-                onChange={(e) => setCustomCommand(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && connected && !sending) {
-                    sendCommand(customCommand);
-                  }
-                }}
-                placeholder="Enter custom command"
-                className="w-[280px] px-5 py-3 rounded border border-gray-300
-                          bg-black text-green-300
-                          text-[15px] font-mono
-                          placeholder:text-[14px]
-                          focus:outline-none focus:ring-1 focus:ring-green-500"
-              />
+                <button
+                  onClick={() => sendCommand(customCommand)}
+                  disabled={!connected || sending}
+                  className={`w-16 px-2 py-2 text-[15px] rounded-md shadow
+                    ${
+                      !connected || sending
+                        ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"
+                    }
+                  `}
+                >
+                  Send
+                </button>
 
-              <button
-                onClick={() => sendCommand(customCommand)}
-                disabled={!connected || sending}
-                className={`w-16 px-2 py-2 text-[15px] rounded-md shadow
-                  ${
+                <button
+                  onClick={clearMessage}
+                  className="px-4 py-2 text-[15px] bg-yellow-600 text-white rounded-md shadow
+                            hover:bg-yellow-500 active:bg-yellow-700"
+                >
+                  Clear
+                </button>
+                
+              </div>
+              {/* Device info */}
+              <div className="flex gap-3 mt-3">
+                <button
+                  onClick={() => sendCommand(COMMANDS.info)}
+                  disabled={!connected || sending}
+                  className={`px-4 py-2 rounded-md shadow ${
                     !connected || sending
                       ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700"
-                  }
-                `}
-              >
-                Send
-              </button>
-
-              <button
-                onClick={clearMessage}
-                className="px-4 py-2 text-[15px] bg-yellow-600 text-white rounded-md shadow
-                          hover:bg-yellow-500 active:bg-yellow-700"
-              >
-                Clear
-              </button>
+                      : "bg-green-600 text-white hover:bg-green-500 active:bg-green-700"
+                  }`}
+                >
+                  {sending ? "Sending..." : "Device Info"}
+                </button>
+              </div>
             </div>
-
-            {/* ปุ่มควบคุม */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => sendCommand(COMMANDS.info)}
-                disabled={!connected || sending}
-                className={`px-4 py-2 rounded-md shadow ${
-                  !connected || sending
-                    ? "bg-gray-400 text-gray-200 opacity-70 cursor-not-allowed"
-                    : "bg-green-600 text-white hover:bg-green-500 active:bg-green-700"
-                }`}
-              >
-                {sending ? "Sending..." : "Device Info"}
-              </button>
-            </div>
-
-
+            
           </div>
         )}
 
@@ -484,4 +551,5 @@ useEffect(() => {
 
 export default App;
 
-/* v1.9beta4 */
+
+/* v2.1beta1 */
