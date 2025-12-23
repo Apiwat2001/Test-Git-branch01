@@ -203,7 +203,7 @@ useEffect(() => {
         {/* Frame 1 ====================================================================================================================================================*/}
         {activeFrame === "frame1" && (
           <div className="relative space-y-3">
-            <h2 className="text-2xl font-bold text-blue-200 neon-text">
+            <h2 className="text-2xl font-bold text-gray-200">
               Device Info</h2>
             
             <div className="flex items-center gap-3">
