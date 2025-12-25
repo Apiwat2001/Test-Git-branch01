@@ -1,0 +1,29 @@
+src/
+├── App.jsx                          
+├── index.css                        
+│
+├── components/                      
+│   ├── Sidebar.jsx                  
+│   ├── ConnectionPanel.jsx          
+│   ├── MessageDisplay.jsx           
+│   ├── CommandInput.jsx             
+│   └── frames/
+│       ├── Frame1.jsx               
+│       ├── Frame2.jsx               
+│       ├── Frame3.jsx               
+│       └── Frame4.jsx               
+│
+├── hooks/                           
+│   ├── useSerialConnection.js       
+│   ├── useTcpConnection.js          
+│   └── usePortScanner.js            
+│
+├── services/                        
+│   ├── serialService.js             
+│   └── tcpService.js                
+│
+├── constants/                       
+│   └── commands.js                  
+│
+└── utils/                           
+    └── formatters.js                
