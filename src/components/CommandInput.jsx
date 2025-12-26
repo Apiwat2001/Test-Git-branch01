@@ -14,7 +14,7 @@ export const CommandInput = ({
   const handleSend = () => {
     if (command.trim() && !disabled && !sending) {
       onSend(command);
-      setCommand(""); // Clear after send
+      //setCommand(""); // Clear after send
     }
   };
 

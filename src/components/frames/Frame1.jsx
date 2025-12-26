@@ -23,6 +23,7 @@ export const Frame1 = ({
   
   // Connection state
   connected,
+  checking,
   onConnect,
   onDisconnect,
   
@@ -32,10 +33,17 @@ export const Frame1 = ({
   onSendCommand,
   onClearMessage,
 }) => {
+  
   return (
-    <div className="relative space-y-3">
+   <div className="relative space-y-3">
       <h2 className="text-2xl font-bold text-gray-200">Device Info</h2>
 
+      {checking && (
+        <div className="text-yellow-400 text-sm animate-pulse">
+          Checking connection status...
+        </div>
+      )}
+      
       <ConnectionPanel
         ports={ports}
         selectedPort={selectedPort}

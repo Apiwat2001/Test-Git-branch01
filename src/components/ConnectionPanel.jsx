@@ -20,6 +20,7 @@ export const ConnectionPanel = ({
   connectionMode,
   onModeChange,
   connected,
+  checking,
   onConnect,
   onDisconnect,
   
@@ -131,7 +132,7 @@ export const ConnectionPanel = ({
       <div className={`flex items-center gap-3 ${compact ? '' : 'mt-7'}`}>
         <button
           onClick={onConnect}
-          disabled={connected || !canConnect}
+          disabled={checking || connected || !canConnect}
           className={`${compact ? 'px-1.5 py-1 text-[12px]' : 'px-4 py-2 text-[14px]'}
             ${connected || !canConnect
               ? "bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
@@ -143,7 +144,7 @@ export const ConnectionPanel = ({
 
         <button
           onClick={onDisconnect}
-          disabled={!connected}
+          disabled={checking || !connected}
           className={`${compact ? 'px-1.5 py-1 text-[12px]' : 'px-4 py-2 text-[14px]'}
             ${!connected
               ? "bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
@@ -155,7 +156,11 @@ export const ConnectionPanel = ({
 
         {!compact && (
           <span className={`ml-9 font-bold text-[22px] ${
-            connected ? "text-green-400" : "text-red-400"
+            checking
+              ? "text-yellow-400"
+              : connected
+                ? "text-green-400"
+                : "text-red-400"
           }`}>
             {connected ? "Connected" : "Disconnected"}
           </span>

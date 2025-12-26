@@ -2,11 +2,13 @@
 import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { tcpService } from "../services/tcpService";
+import { invoke } from "@tauri-apps/api/core";
 
-export const useTcpConnection = () => {
-  const [connected, setConnected] = useState(false);
+export const useTcpConnection = (ipAddress, ipPort) => {
   const [sending, setSending] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [connected, setConnected] = useState(false);
+  const [checking, setChecking] = useState(false);
 
   // Listen to TCP data events
   useEffect(() => {
@@ -29,6 +31,7 @@ export const useTcpConnection = () => {
   }, []);
 
   const connect = async (ip, port) => {
+    if (connected) return;
     try {
       if (!ip || !port) throw new Error("Please enter IP address and port");
       
@@ -74,6 +77,18 @@ export const useTcpConnection = () => {
     setStatusMessage("");
   };
 
+  const checkConnected = async (ip, port) => {
+    try {
+      setChecking(true);
+      const result = await invoke("is_tcp_connected", { ip, port });
+      setConnected(result);
+    } catch (e) {
+      setConnected(false);
+    } finally {
+      setChecking(false);
+    }
+  };
+
   return {
     connected,
     sending,
@@ -82,5 +97,7 @@ export const useTcpConnection = () => {
     disconnect,
     sendData,
     clearMessage,
+    checkConnected,
+    checking,
   };
 };

@@ -10,6 +10,7 @@ import { useSerialConnection } from "./hooks/useSerialConnection";
 import { useTcpConnection } from "./hooks/useTcpConnection";
 import { FRAME_NAMES, DEFAULT_CONFIG } from "./constants/commands";
 import "./index.css";
+import { invoke } from "@tauri-apps/api/core";
 
 function App() {
   const [activeFrame, setActiveFrame] = useState("frame1");
@@ -27,24 +28,41 @@ function App() {
   } = usePortScanner();
 
   const serialConn = useSerialConnection();
-  const tcpConn = useTcpConnection();
+  const tcpConn = useTcpConnection(ipAddress, ipPort);
 
   // Select active connection based on mode
   const activeConn = connectionMode === "serial" ? serialConn : tcpConn;
 
   // Auto-disconnect when switching connection mode
   useEffect(() => {
+    if (!connectionMode) return;
     const handleModeSwitch = async () => {
-      if (serialConn.connected) {
-        await serialConn.disconnect(selectedPort);
-      }
-      if (tcpConn.connected) {
-        await tcpConn.disconnect(ipAddress, ipPort);
+      try {
+        if (serialConn.connected && selectedPort) {
+          await serialConn.disconnect(selectedPort);
+        }
+        if (tcpConn.connected && ipAddress && ipPort) {
+          await tcpConn.disconnect(ipAddress, ipPort);
+        }
+      } catch (e) {
+        console.warn("Mode switch disconnect failed:", e);
       }
     };
 
     handleModeSwitch();
   }, [connectionMode]);
+
+  // Refresh แล้ว Disconnect 
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      invoke("disconnect_all").catch((e) =>
+        console.warn("disconnect_all failed:", e)
+      );
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   // Handle port change with auto-disconnect
   const handlePortChange = async (newPort) => {
@@ -123,6 +141,7 @@ function App() {
     
     // Connection state (from active connection)
     connected: activeConn.connected,
+    checking: activeConn.checking,
     onConnect: handleConnect,
     onDisconnect: handleDisconnect,
     
