@@ -26,6 +26,9 @@ export const ConnectionPanel = ({
   
   // UI variants
   compact = false,
+
+  //Custom Button
+  renderConnectButtons,
 }) => {
   const canConnect = connectionMode === "serial" ? selectedPort : ipAddress && ipPort;
 
@@ -128,44 +131,38 @@ export const ConnectionPanel = ({
         </div>
       )}
 
-      {/* Connect/Disconnect Buttons */}
-      <div className={`flex items-center gap-3 ${compact ? '' : 'mt-7'}`}>
-        <button
-          onClick={onConnect}
-          disabled={checking || connected || !canConnect}
-          className={`${compact ? 'px-1.5 py-1 text-[12px]' : 'px-4 py-2 text-[14px]'}
-            ${connected || !canConnect
-              ? "bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
-              : "bg-green-600 text-white rounded-md shadow hover:bg-green-500 active:bg-green-700 cursor-custom1"
-            }`}
-        >
-          Connect
-        </button>
+{/* Connect / Disconnect Buttons */}
+      {renderConnectButtons ? (
+        renderConnectButtons({ connected, canConnect, checking, onConnect, onDisconnect })
+      ) : (
+        <div className={`Relative items-center gap-3 ${compact ? '' : 'mt-7'}`}>
+          <button
+            onClick={onConnect}
+            disabled={checking || connected || !canConnect}
+            className={`${compact ? 'absolute top-[0px] left-[180px] px-1.5 py-1 text-[12px]' : 
+                                    'px-4 py-2 text-[14px] '}
+              ${connected || !canConnect
+                ? "bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
+                : "bg-green-600 text-white rounded-md shadow hover:bg-green-500 active:bg-green-700 cursor-custom1"
+              }`}
+          >
+            Connect
+          </button>
 
-        <button
-          onClick={onDisconnect}
-          disabled={checking || !connected}
-          className={`${compact ? 'px-1.5 py-1 text-[12px]' : 'px-4 py-2 text-[14px]'}
-            ${!connected
-              ? "bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
-              : "bg-red-600 text-white rounded-md shadow hover:bg-red-500 active:bg-red-700 cursor-custom1"
-            }`}
-        >
-          Disconnect
-        </button>
-
-        {!compact && (
-          <span className={`ml-9 font-bold text-[22px] ${
-            checking
-              ? "text-yellow-400"
-              : connected
-                ? "text-green-400"
-                : "text-red-400"
-          }`}>
-            {connected ? "Connected" : "Disconnected"}
-          </span>
-        )}
-      </div>
+          <button
+            onClick={onDisconnect}
+            disabled={checking || !connected}
+            className={`${compact ? 'absolute top-[0px] left-[240px] px-1.5 py-1 text-[12px]' : 
+                                    'px-4 py-2 text-[14px]' }
+              ${!connected
+                ? "bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
+                : "bg-red-600 text-white rounded-md shadow hover:bg-red-500 active:bg-red-700 cursor-custom1"
+              }`}
+          >
+            Disconnect
+          </button>
+        </div>
+      )}
     </div>
   );
 };
