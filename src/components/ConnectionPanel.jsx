@@ -153,7 +153,7 @@ export const ConnectionPanel = ({
             onClick={onDisconnect}
             disabled={checking || !connected}
             className={`${compact ? 'absolute top-[0px] left-[240px] px-1.5 py-1 text-[12px]' : 
-                                    'px-4 py-2 text-[14px]' }
+                                    'absolute left-[90px] px-4 py-2 text-[14px]' }
               ${!connected
                 ? "bg-gray-400 text-gray-200 rounded-md opacity-70 cursor-not-allowed"
                 : "bg-red-600 text-white rounded-md shadow hover:bg-red-500 active:bg-red-700 cursor-custom1"
