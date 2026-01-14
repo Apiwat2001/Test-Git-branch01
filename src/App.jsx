@@ -173,4 +173,4 @@ function App() {
 export default App;
 
 
-/* v2.5beta1 */
+/* v2.6beta1 */
