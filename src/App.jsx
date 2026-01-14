@@ -170,11 +170,7 @@ function App() {
   );
 }
 
-<<<<<<< HEAD
 export default App;
 
 
-/* version 2.0 */
-=======
-export default App;
->>>>>>> Version-BETA
+/* version 2.3 */
