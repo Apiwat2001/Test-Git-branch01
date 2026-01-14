@@ -205,6 +205,15 @@ async fn disconnect_com_port(
 }
 
 #[tauri::command]
+async fn is_serial_connected(
+    port_name: String,
+    state: State<'_, AppState>,
+) -> Result<bool, String> {
+    let ports = state.ports.lock().await;
+    Ok(ports.contains_key(&port_name))
+}
+
+#[tauri::command]
 async fn send_serial_async(
     port_name: String,
     command: String,
@@ -292,6 +301,17 @@ async fn disconnect_tcp(
 }
 
 #[tauri::command]
+async fn is_tcp_connected(
+    ip: String,
+    port: u16,
+    state: State<'_, TcpState>,
+) -> Result<bool, String> {
+    let addr = format!("{}:{}", ip, port);
+    let conns = state.connections.lock().await;
+    Ok(conns.contains_key(&addr))
+}
+
+#[tauri::command]
 async fn send_tcp(
     ip: String,
     port: u16,
@@ -313,8 +333,21 @@ async fn send_tcp(
     Ok("TCP data sent".into())
 }
 
+#[tauri::command]
+async fn disconnect_all(
+    serial: State<'_, AppState>,
+    tcp: State<'_, TcpState>,
+) -> Result<(), String> {
+    serial.ports.lock().await.clear();
+    serial.buffers.lock().await.clear();
+    tcp.connections.lock().await.clear();
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(AppState::default())
         .manage(TcpState::default())
         .invoke_handler(tauri::generate_handler![
@@ -324,7 +357,10 @@ fn main() {
             send_serial_async,
             connect_tcp,
             disconnect_tcp,
-            send_tcp
+            send_tcp,
+            is_serial_connected, 
+            is_tcp_connected,
+            disconnect_all
         ])
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
