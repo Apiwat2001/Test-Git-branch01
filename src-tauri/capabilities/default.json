@@ -7,8 +7,13 @@
     "core:default",
 
     "dialog:default",
-    "fs:default",
+    "dialog:allow-save",
 
-    "opener:default"
+    "fs:default",
+    "fs:allow-write-text-file",
+
+    "fs:scope-desktop",
+    "fs:scope-document",
+    "fs:scope-download"
   ]
 }
