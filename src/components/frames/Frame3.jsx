@@ -36,6 +36,7 @@ export const Frame3 = ({
   const [commandStatus, setCommandStatus] = useState([]);
   const [generateStatus, setGenerateStatus] = useState([]);
   const [manualIndex, setManualIndex] = useState("");
+  const fileInputRef = useRef(null);
 
   // Refs
   const outputRef = useRef(null);
@@ -203,6 +204,8 @@ export const Frame3 = ({
     if (!path) return;
 
     await writeTextFile(path, outputText);
+
+    //alert("Saved:\n" + path);
   };
 
   // Load Script
@@ -217,6 +220,9 @@ export const Frame3 = ({
       const lines = text.split("\n").filter((line) => line.trim());
       setCommands(lines);
       setIndexCounter(lines.length);
+
+      e.target.value = "";
+      // หรือ: fileInputRef.current.value = "";
     };
     reader.readAsText(file);
   };
@@ -418,7 +424,13 @@ export const Frame3 = ({
           </button>
           <label className="cursor-custom1 px-2 py-0.5 bg-purple-600 text-white rounded text-[12px] cursor-pointer hover:bg-purple-500">
             Load
-            <input type="file" accept=".txt" onChange={handleLoad} className="hidden" />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt"
+              onChange={handleLoad}
+              className="hidden"
+            />
           </label>
         </div>
       </div>
