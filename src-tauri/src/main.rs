@@ -346,6 +346,8 @@ async fn disconnect_all(
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(AppState::default())
         .manage(TcpState::default())
         .invoke_handler(tauri::generate_handler![

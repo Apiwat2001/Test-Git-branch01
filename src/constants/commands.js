@@ -7,7 +7,7 @@ export const COMMANDS = {
 export const FRAME_NAMES = {
   frame1: "Connect Device",
   frame2: "Digital Test",
-  frame3: "Frame 3",
+  frame3: "SD Script",
   frame4: "Frame 4",
 };
 
